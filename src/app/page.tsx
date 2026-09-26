@@ -1,69 +1,89 @@
-import Image from "next/image";
+"use client";
+
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import type { Session } from "@supabase/supabase-js";
+import { supabase } from "@/lib/supabase";
 
 export default function Home() {
+  const [session, setSession] = useState<Session | null | undefined>(undefined);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => setSession(data.session));
+    const { data } = supabase.auth.onAuthStateChange((_e, s) => setSession(s));
+    return () => data.subscription.unsubscribe();
+  }, []);
+
+  if (session === undefined) return null;
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+    <main className="mx-auto w-full max-w-xl p-8">
+      <h1 className="mb-1 text-3xl font-bold">Cap</h1>
+      <p className="mb-8 text-slate-500">Le macro-plan de l&apos;équipe.</p>
+      {session ? <Projects email={session.user.email!} /> : <Login />}
+    </main>
+  );
+}
+
+function Login() {
+  const [error, setError] = useState("");
+  const submit = async (form: FormData, signUp: boolean) => {
+    const creds = { email: String(form.get("email")), password: String(form.get("password")) };
+    const { data, error } = signUp ? await supabase.auth.signUp(creds) : await supabase.auth.signInWithPassword(creds);
+    if (error) setError(error.message);
+    else if (signUp && !data.session) setError("Compte créé : confirme ton email puis connecte-toi.");
+  };
+  return (
+    <form className="flex flex-col gap-3" onSubmit={(e) => { e.preventDefault(); submit(new FormData(e.currentTarget), false); }}>
+      <input name="email" type="email" required placeholder="Email" autoComplete="email" className="input" />
+      <input name="password" type="password" required minLength={6} placeholder="Mot de passe"
+        autoComplete="current-password" className="input" />
+      {error && <p className="text-sm text-red-600">{error}</p>}
+      <div className="flex gap-2">
+        <button className="btn-primary">Se connecter</button>
+        <button type="button" className="btn"
+          onClick={(e) => { const f = e.currentTarget.form!; if (f.reportValidity()) submit(new FormData(f), true); }}>
+          Créer un compte
+        </button>
+      </div>
+    </form>
+  );
+}
+
+function Projects({ email }: { email: string }) {
+  const router = useRouter();
+  const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
+
+  useEffect(() => {
+    supabase.from("projects").select("id, name").order("created_at").then(({ data }) => setProjects(data ?? []));
+  }, []);
+
+  const create = async (form: FormData) => {
+    const { data, error } = await supabase.rpc("create_project", { p_name: String(form.get("name")) });
+    if (error) alert(error.message);
+    else router.push(`/p/${data}`);
+  };
+
+  return (
+    <div className="flex flex-col gap-6">
+      <ul className="flex flex-col gap-2">
+        {projects.map((p) => (
+          <li key={p.id}>
+            <Link href={`/p/${p.id}`} className="block rounded-lg border border-slate-200 bg-white p-4 hover:border-slate-400">
+              {p.name}
+            </Link>
+          </li>
+        ))}
+        {!projects.length && <li className="text-slate-500">Aucun projet pour l&apos;instant.</li>}
+      </ul>
+      <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); create(new FormData(e.currentTarget)); }}>
+        <input name="name" required placeholder="Nom du projet" className="input flex-1" />
+        <button className="btn-primary">Créer</button>
+      </form>
+      <p className="text-sm text-slate-500">
+        Connecté : {email} ·{" "}
+        <button className="underline" onClick={() => supabase.auth.signOut()}>se déconnecter</button>
+      </p>
     </div>
   );
 }
