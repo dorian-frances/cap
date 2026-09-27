@@ -20,7 +20,8 @@ export default function PersonPanel({ person, data, plan, store, closing, onClos
   const fresh = person.name === "Nouvelle personne";
   const today = todayIso();
   const doing = mine.filter((r) => r.item.status === "doing" && (!r.item.started_on || r.item.started_on <= today));
-  const total = doing.reduce((sum, r) => sum + allocationOn(r.item, today, person.id), 0);
+  const defect = Number(person.defect_share ?? 0);
+  const total = doing.reduce((sum, r) => sum + allocationOn(r.item, today, person.id), defect);
   const over = overloaded(plan).get(person.id);
 
   return (
@@ -45,10 +46,11 @@ export default function PersonPanel({ person, data, plan, store, closing, onClos
           <Select label="Disponibilité" className="w-44" options={CAPACITIES} value={String(Math.round(person.capacity * 100))}
             onValueChange={(v) => store.updatePerson(person.id, { capacity: Number(v) / 100 })} />
         </Field>
-        <Field inline label="Temps sur les défauts" hint="Retiré du temps disponible pour le plan">
+        <Field inline label="Temps sur les défauts" hint="Réservé en priorité, compté dans sa charge">
           <Select label="Temps sur les défauts" className="w-44" options={DEFECTS} value={String(Math.round(Number(person.defect_share ?? 0) * 100))}
             onValueChange={(v) => store.updatePerson(person.id, { defect_share: Number(v) / 100 })} />
         </Field>
+        {over && <p className="rounded-md bg-red-50 px-2.5 py-2 text-xs text-red-800">Surcharge jusqu&apos;à {Math.round(over.peak * 100)} % de son temps du {fmtDay(toIso(over.from))} au {fmtDay(toIso(over.to))}{defect > 0 && `, défauts compris (${pctLabel(defect)})`} : ses tâches ralentissent. Réduisez une allocation ou réassignez.</p>}
         {doing.length > 0 && (
           <section className="flex flex-col gap-1">
             <div className="flex items-center"><SectionTitle>En cours aujourd&apos;hui</SectionTitle><span className="flex-1" />
@@ -59,7 +61,7 @@ export default function PersonPanel({ person, data, plan, store, closing, onClos
                 <span className="text-xs tabular-nums text-stone-500">{pctLabel(allocationOn(item, today, person.id))}</span>
               </button>
             ))}
-            {over && <p className="rounded-md bg-red-50 px-2.5 py-2 text-xs text-red-800">Surcharge jusqu&apos;à {Math.round(over.peak * 100)} % du {fmtDay(toIso(over.from))} au {fmtDay(toIso(over.to))} : ses tâches en cours ralentissent. Réduisez une allocation ou réassignez.</p>}
+            {defect > 0 && <div className="flex h-8 items-center gap-2.5 text-[13px] text-stone-500"><span className="size-3.5" /><span className="flex-1">Défauts</span><span className="text-xs tabular-nums">{pctLabel(defect)}</span></div>}
           </section>
         )}
         <section className="flex flex-col gap-1">

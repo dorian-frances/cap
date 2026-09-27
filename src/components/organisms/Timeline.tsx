@@ -3,7 +3,7 @@
 import { useState, type ReactNode, type RefObject } from "react";
 import { GripVertical, Plus, TriangleAlert } from "lucide-react";
 import {
-  allocationOn, pctLabel, lateBy, isLate, overdue, slip, todayIso, totalJh, unplannedReason, fmtDay,
+  allocationOn, itemOverload, pctLabel, lateBy, isLate, overdue, slip, todayIso, totalJh, unplannedReason, fmtDay,
   type Item, type Person, type Plan, type Row,
 } from "@/lib/plan";
 import type { Axis } from "@/lib/axis";
@@ -75,6 +75,7 @@ export default function Timeline({ scrollRef, ...p }: Props) {
     const span = plan.spans.get(item.id);
     const late = hasChildren ? isLate(item, plan, items) : lateBy(item, span, items) > 0;
     const owners = people.filter((o) => item.owner_ids.includes(o.id));
+    const over = hasChildren || item.status === "done" ? [] : [...itemOverload(plan, item)].map(([id, ov]) => ({ o: people.find((x) => x.id === id), ov }));
     const ring = sel ? "#f3f3fc" : "#fff";
     const hint = drop?.id === item.id ? (drop.where === "before" ? "shadow-[inset_0_2px_0_var(--color-accent-600)]" : "shadow-[inset_0_-2px_0_var(--color-accent-600)]") : "";
     return (
@@ -134,6 +135,12 @@ export default function Timeline({ scrollRef, ...p }: Props) {
             <span title={`${span!.planned! < todayIso() ? "En retard" : "Glissement prévu"} de ${slip(span)} j ouvrés (fin prévue le ${fmtDay(span!.planned!)})`}
               className="shrink-0 animate-fade-in rounded-[4px] bg-amber-100 px-1 text-[11px] font-medium tabular-nums leading-4 text-amber-800">
               +{slip(span)} j
+            </span>
+          )}
+          {over.length > 0 && (
+            <span title={over.map(({ o, ov }) => `${o?.name} à ${Math.round(ov.peak * 100)} % de son temps${Number(o?.defect_share) > 0 ? ` (dont ${pctLabel(Number(o!.defect_share))} défauts)` : ""}`).join(" · ")}
+              className="shrink-0 animate-fade-in rounded-[4px] bg-red-50 px-1 text-[11px] font-medium tabular-nums leading-4 text-red-700">
+              {Math.round(Math.max(...over.map((x) => x.ov.peak)) * 100)} %
             </span>
           )}
           <span className="flex-1" />

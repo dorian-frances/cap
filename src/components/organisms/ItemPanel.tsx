@@ -2,14 +2,14 @@
 
 import { ArrowRight, CalendarCheck, CalendarDays, ChevronRight, CircleSlash, Clock, Divide, Link2, Play, Trash2, TriangleAlert, X } from "lucide-react";
 import {
-  absentSet, allocationOn, planCapacity, isWeekend, pctLabel, toIso, lateBy, overdue, slip, toDay, todayIso, totalJh, unplannedReason, workingDays, fmtDay,
+  absentSet, allocationOn, itemOverload, isWeekend, pctLabel, toIso, lateBy, overdue, slip, toDay, todayIso, totalJh, unplannedReason, workingDays, fmtDay,
   type Item, type Plan,
 } from "@/lib/plan";
 import type { Data, Store } from "@/lib/store";
 import type { PickKind } from "./Timeline";
 import { Avatar, Button, Chip, Diamond, InlineInput, Kbd, StatusIcon, Textarea } from "../atoms";
 import { IconButton, SectionTitle, SidePanel, SidePanelBody } from "../molecules";
-import AllocationControl from "./AllocationControl";
+import AllocationControl, { withAllocation } from "./AllocationControl";
 import { STATUS } from "../tokens";
 
 type Props = {
@@ -34,18 +34,17 @@ export default function ItemPanel({ item, data, plan, store, closing, onClose, o
   const late = lateBy(item, span, items);
   const behind = !isParent && overdue(item, span);
   const today = todayIso();
-  // Causes d'un glissement : surcharge partagée avec d'autres tâches, allocation réduite.
-  const partners = new Map<string, { names: Set<string>; from: number; to: number }>();
-  if (behind && span) for (let d = toDay(span.start); d <= toDay(span.end); d++)
-    for (const o of owners) {
-      const ov = plan.overload.get(`${o.id}:${d}`);
-      if (!ov?.ids.includes(item.id)) continue;
-      for (const id of ov.ids) if (id !== item.id) {
-        const pr = partners.get(id) ?? { names: new Set<string>(), from: d, to: d };
-        pr.names.add(o.name); pr.to = d;
-        partners.set(id, pr);
-      }
-    }
+  // Surcharge des owners sur la période : ce qui s'additionne, et l'allocation qui la ferait disparaître.
+  const surcharge = isParent || item.status === "done" ? [] : [...itemOverload(plan, item)].map(([id, ov]) => {
+    const o = owners.find((x) => x.id === id)!;
+    const day = toIso(ov.from);
+    const mine = allocationOn(item, day, id);
+    const defect = Number(o.defect_share ?? 0);
+    const others = [...ov.others].map((oid) => items.find((i) => i.id === oid)!).filter(Boolean);
+    const room = 1 - defect - others.reduce((sum, x) => sum + allocationOn(x, day, id), 0);
+    const fit = [0.8, 0.5, 0.2].find((v) => v <= room + 1e-9 && v < mine);
+    return { o, ov, mine, defect, others, fit };
+  }).filter((x) => x.o);
   const reduced = (item.allocations ?? []).filter((a) => a.pct < 1 && span && a.from <= span.end).sort((a, b) => a.from.localeCompare(b.from))[0];
   const crumbs: Item[] = [];
   for (let p = items.find((i) => i.id === item.parent_id); p; p = items.find((i) => i.id === p!.parent_id)) crumbs.unshift(p);
@@ -81,12 +80,14 @@ export default function ItemPanel({ item, data, plan, store, closing, onClose, o
       if (item.status === "doing" && (item.allocations ?? []).length)
         why.push({ icon: <Clock size={14} />, text: `Allocation : ${[...(item.allocations ?? [])].sort((a, b) => a.from.localeCompare(b.from))
           .map((a) => `${a.person ? `${people.find((p) => p.id === a.person)?.name ?? "?"} ` : ""}${pctLabel(a.pct)} à partir du ${fmtDay(a.from)}`).join(", ")}` });
-      // Débit de départ : capacité de chaque owner × son allocation sur la tâche.
-      const pctOf = (id: string) => allocationOn(item, span.start, id);
-      const cap = owners.reduce((sum, o) => sum + planCapacity(o) * pctOf(o.id), 0) || owners.reduce((sum, o) => sum + planCapacity(o), 0);
+      // Débit de départ : capacité de chaque owner × son allocation, dans la limite de ce que lui laissent les défauts.
+      const effOf = (o: (typeof owners)[number], pct = allocationOn(item, span.start, o.id)) =>
+        Number(o.capacity) * Math.min(pct, 1 - Number(o.defect_share ?? 0));
+      const cap = owners.reduce((sum, o) => sum + effOf(o), 0) || owners.reduce((sum, o) => sum + effOf(o, 1), 0);
       const who = owners.map((o) => {
-        const eff = planCapacity(o) * pctOf(o.id);
-        return `${o.name}${eff < 1 ? ` à ${pctLabel(eff)}` : ""}`;
+        const eff = effOf(o);
+        const cut = Number(o.defect_share) > 0 && eff < Number(o.capacity) * allocationOn(item, span.start, o.id);
+        return `${o.name}${eff < 1 ? ` à ${pctLabel(eff)}` : ""}${cut ? ` (${pctLabel(Number(o.defect_share))} sur les défauts)` : ""}`;
       }).join(" + ");
       why.push({ icon: <Divide size={14} />, text: `${Number(item.estimate_jh)} j ÷ ${who} = ${Math.ceil(Number(item.estimate_jh) / cap)} jours de travail · fin prévue le ${fmtDay(span.planned ?? span.end)}` });
       if (item.status === "done" && item.done_on) {
@@ -170,13 +171,7 @@ export default function ItemPanel({ item, data, plan, store, closing, onClose, o
             <div className="flex items-center gap-2 font-semibold text-amber-900"><Clock size={14} className="text-amber-600" />
               {span!.planned! < today ? "En retard" : "Glissement prévu"} de {slip(span)} j ouvré{slip(span) > 1 ? "s" : ""} sur la fin prévue ({fmtDay(span!.planned!)})</div>
             <ul className="flex flex-col gap-1 text-[12.5px] text-amber-900/80">
-              {[...partners].map(([id, pr]) => {
-                const other = items.find((i) => i.id === id);
-                return (
-                  <li key={id}>{[...pr.names].join(", ")} {pr.names.size > 1 ? "sont" : "est"} aussi sur{" "}
-                    <button onClick={() => onOpen(id)} className="underline decoration-amber-300 underline-offset-2">{other?.title || "Sans titre"}</button> : surcharge du {fmtDay(toIso(pr.from))} au {fmtDay(toIso(pr.to))}.</li>
-                );
-              })}
+              {surcharge.length > 0 && <li>Surcharge de {surcharge.map((x) => x.o.name).join(", ")} (détail ci-dessous).</li>}
               {reduced && <li>Allocation réduite à {pctLabel(reduced.pct)} à partir du {fmtDay(reduced.from)}.</li>}
               {span!.planned! < today && <li>Pas terminée à temps : elle garde son allocation jusqu&apos;à ce qu&apos;elle soit terminée, la suite de ses owners glisse.</li>}
             </ul>
@@ -185,6 +180,27 @@ export default function ItemPanel({ item, data, plan, store, closing, onClose, o
             </div>
           </div>
         )}
+
+        {surcharge.map(({ o, ov, mine, defect, others, fit }) => (
+          <div key={o.id} className="flex animate-rise-in flex-col gap-2 rounded-lg border border-red-100 bg-red-50/60 px-3.5 py-3 text-[13px]">
+            <div className="flex items-center gap-2 font-semibold text-red-800"><TriangleAlert size={14} className="text-red-600" />
+              {o.name} en surcharge : {Math.round(ov.peak * 100)} % de son temps</div>
+            <div className="text-[12.5px] text-red-800/80">
+              {pctLabel(mine)} sur cette tâche
+              {defect > 0 && <> + {pctLabel(defect)} sur les défauts</>}
+              {others.map((x) => <span key={x.id}> + {pctLabel(allocationOn(x, toIso(ov.from), o.id))} sur{" "}
+                <button onClick={() => onOpen(x.id)} className="underline decoration-red-300 underline-offset-2">{x.title || "Sans titre"}</button></span>)}
+              , du {fmtDay(toIso(ov.from))} au {fmtDay(toIso(ov.to))} : impossible à tenir, la tâche n&apos;avance qu&apos;avec le temps qui reste et sa durée s&apos;allonge.
+            </div>
+            {fit !== undefined && (
+              <div className="flex gap-1.5">
+                <Button size="sm" onClick={() => store.updateItems([item.id], { allocations: withAllocation(item, o.id, fit, today, item.status === "doing") })}>
+                  Passer {o.name} à {pctLabel(fit)} sur cette tâche
+                </Button>
+              </div>
+            )}
+          </div>
+        ))}
 
         {!isParent && item.status !== "done" && owners.length > 0 && <AllocationControl item={item} owners={owners} dated={item.status === "doing"} store={store} />}
 

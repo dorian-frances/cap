@@ -27,7 +27,7 @@ Principe clé : **la barre n'est pas dessinée, elle est calculée** à partir d
 
 - **Durée** d'un Item = JH ÷ somme des disponibilités de ses owners. Les JH sont répartis entre les owners.
 - **Enchaînement** : chaque owner traite ses Items dans l'ordre de priorité ; un Item démarre quand tous ses owners sont libres.
-- **Disponibilité** : 100 % par défaut, moins les week-ends, les temps partiels, les absences saisies et la **part consacrée aux défauts** (réglée par personne, ex. 20 %). Les allocations sur les tâches se comptent sur ce temps restant ; l'occupation affichée inclut les défauts.
+- **Disponibilité** : 100 % par défaut, moins les week-ends, les temps partiels, les absences saisies et la **part consacrée aux défauts** (réglée par personne, ex. 20 %). La part défauts est réservée en premier ; les allocations sur les tâches sont des parts du temps **total** (Hugues à 20 % de défauts : 80 % sur sa tâche = tout son temps restant) ; l'occupation affichée inclut les défauts.
 - **Jours fériés** : non gérés automatiquement (des freelances travaillent certains fériés). On saisit une absence, éventuellement pour toute l'équipe d'un coup.
 - **Dates réelles, pas de barre dessinée** : une tâche passe par trois états qui enregistrent chacun une date.
   - *À faire* : pas de date ; enchaînée par priorité, jamais avant aujourd'hui.
@@ -37,7 +37,7 @@ Principe clé : **la barre n'est pas dessinée, elle est calculée** à partir d
 - **Allocation par personne** : chaque owner consacre une part de son temps à la tâche (« Alice 100 %, Bob 20 % en aide »), datée pour une tâche en cours (« 50 % à partir du 14 sept. », 0 % = en attente). 100 % par défaut : on vise le one-piece flow. Le reste du temps va aux autres tâches, en parallèle.
 - **Personne en aide** : une tâche attend ses owners à 100 % ; une personne à moins de 100 % donne ce qu'elle peut sans retarder le démarrage ni bloquer ses propres tâches.
 - **Fin prévue = engagement** : date de début + JH à l'allocation du jour de démarrage, sur la disponibilité des owners. La fin de tâche sert de jalon : finir (ou prévoir de finir) après, c'est glisser.
-- **Surcharge** : si les allocations d'une personne dépassent 100 % un jour donné, ses tâches ralentissent au prorata (et glissent), et elle est signalée.
+- **Surcharge** : si les allocations d'une personne **plus sa part défauts** dépassent 100 % un jour donné (ex. 100 % sur une tâche + 20 % de défauts = 120 %), ses tâches n'avancent qu'avec le temps qui reste, et elle est signalée.
 - **Faits avant priorités** : les tâches terminées puis en cours sont placées d'abord, les tâches à faire remplissent le temps libre restant.
 - **Jalon client** : Item de type jalon, avec une date fixe saisie, affiché comme repère sur la timeline. Il ne pilote pas le calcul.
 - **Pas de fin de projet** : le projet est continu, on raisonne en date de livraison par Item.
@@ -122,7 +122,7 @@ Principe clé : **la barre n'est pas dessinée, elle est calculée** à partir d
 ### Alerte de surcharge
 - Problème : P2
 - Pour qui : PM, tech lead
-- Résolu quand : une personne dont les allocations cumulées dépassent 100 % est signalée (compteur sur « Équipe », badge « Surcharge », semaines en rouge avec les tâches en cause, détail dans sa fiche).
+- Résolu quand : une personne dont les allocations cumulées, défauts compris, dépassent 100 % est signalée (compteur sur « Équipe », badge « Surcharge », semaines en rouge avec les tâches en cause, détail dans sa fiche) ; sur la timeline, la tâche porte un badge « 120 % » ; son panneau détaille l'addition (« 100 % ici + 20 % défauts »), explique l'allongement et propose « Passer Hugues à 80 % ».
 
 ### Groupe « À planifier »
 - Problème : P11

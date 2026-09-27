@@ -213,4 +213,18 @@ test("part défauts : retirée du temps disponible, comptée dans l'occupation",
   const plan = schedule([x], [h], [], MON);
   assert.deepEqual(plan.spans.get(x.id), { start: MON, end: "2026-10-02" }); // 0,8 JH/j : 5 jours
   assert.equal(weekLoad(plan, h, absentSet([]), toDay(MON)), 100);
+  // 100 % sur la tâche + 20 % de défauts = 120 % : surcharge signalée
+  assert.deepEqual(plan.overload.get(`h:${toDay(MON)}`), { demand: 1.2, ids: [x.id] });
+});
+
+test("part défauts : allocation ajustée à 80 %, plus de surcharge ; 50 % reste 50 % du temps total", () => {
+  const h = { id: "h", name: "Hugues", capacity: 1, defect_share: 0.2 };
+  const x = item({ estimate_jh: 4, owner_ids: ["h"], allocations: [{ from: MON, pct: 0.8, person: "h" }] });
+  const y = item({ estimate_jh: 1, owner_ids: ["h"], status: "doing", started_on: MON, allocations: [{ from: MON, pct: 0.5 }] });
+  const px = schedule([x], [h], [], MON);
+  assert.deepEqual(px.spans.get(x.id), { start: MON, end: "2026-10-02" });
+  assert.equal(px.overload.size, 0);
+  const py = schedule([y], [h], [], MON, MON);
+  assert.deepEqual(py.spans.get(y.id), { start: MON, end: "2026-09-29" }); // 0,5 JH/j, pas 0,4
+  assert.equal(py.overload.size, 0);
 });

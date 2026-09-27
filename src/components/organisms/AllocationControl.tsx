@@ -21,6 +21,12 @@ const normalize = (list: Allocation[]) => {
   });
 };
 
+/** Allocations de l'item après avoir mis `person` à `pct` (daté : à partir de `from`, sinon dès le démarrage). */
+export const withAllocation = (item: Item, person: string, pct: number, from: string, dated: boolean) => {
+  const list = normalize(item.allocations ?? []);
+  return normalize([...list.filter((a) => (a.person ?? "") !== person || (dated && a.from !== from)), { from, pct, person }]);
+};
+
 /**
  * Part du temps de chaque owner consacrée à la tâche (« Alice 100 %, Bob 20 % en aide »).
  * Tâche en cours : changement daté (« à partir du … »). Tâche à faire : vaut dès son démarrage.
@@ -30,12 +36,7 @@ export default function AllocationControl({ item, owners, dated, store }: { item
   const [picked, setPicked] = useState(today);
   const from = dated ? picked : today;
   const list = normalize(item.allocations ?? []);
-  const set = (person: string, pct: number) => store.updateItems([item.id], {
-    allocations: normalize([
-      ...list.filter((a) => (a.person ?? "") !== person || (dated && a.from !== from)),
-      { from, pct, person },
-    ]),
-  });
+  const set = (person: string, pct: number) => store.updateItems([item.id], { allocations: withAllocation(item, person, pct, from, dated) });
   const nameOf = (id?: string) => (id ? owners.find((o) => o.id === id)?.name ?? "Ancien owner" : "Tous les owners");
   return (
     <section className="flex flex-col gap-2">
@@ -60,7 +61,7 @@ export default function AllocationControl({ item, owners, dated, store }: { item
         </div>
       ))}
       <p className="text-xs text-stone-400">
-        Part du temps de chacun consacrée à la tâche (0 % = en attente). Une personne en aide ne retarde pas son démarrage et continue ses autres tâches avec le reste de son temps. Au-delà de 100 % cumulés sur des tâches en cours, elle est signalée en surcharge.
+        Part du temps total de chacun consacrée à la tâche (0 % = en attente). Une personne en aide ne retarde pas son démarrage et continue ses autres tâches avec le reste de son temps. Au-delà de 100 % cumulés avec ses autres tâches en cours et sa part défauts, elle est signalée en surcharge.
       </p>
     </section>
   );
