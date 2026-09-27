@@ -56,6 +56,22 @@ export function workingDays(start: string, end: string) {
   return n;
 }
 
+/**
+ * Début d'une tâche terminée le `endIso` dont on ne connaît pas la date de début :
+ * on remonte le temps jusqu'à couvrir son estimation avec la disponibilité de ses owners.
+ */
+export function startBefore(endIso: string, jh: number, owners: Person[], absences: Absence[]) {
+  const off = absentSet(absences);
+  let left = jh;
+  let d = toDay(endIso);
+  for (let i = 0; i < HORIZON && left > 1e-9; i++, d--) {
+    if (isWeekend(d)) continue;
+    left -= owners.length ? owners.reduce((sum, o) => sum + (off.has(`${o.id}:${d}`) ? 0 : Number(o.capacity)), 0) : 1;
+  }
+  // d a reculé d'un jour de trop après le dernier jour compté (ou vaut la fin si rien à couvrir).
+  return toIso(jh > 0 ? d + 1 : toDay(endIso));
+}
+
 /** Items (hors jalons) dans l'ordre de priorité : parcours en profondeur, frères triés par position. */
 export function orderItems(items: Item[]): Row[] {
   const byParent = new Map<string | null, Item[]>();

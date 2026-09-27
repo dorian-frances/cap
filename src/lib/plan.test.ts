@@ -1,7 +1,7 @@
 // node --test src/lib/plan.test.ts
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { schedule as run, isLate, lateBy, overdue, slip, totalJh, unplannedReason, weekLoad, absentSet, toDay, type Item } from "./plan.ts";
+import { schedule as run, startBefore, isLate, lateBy, overdue, slip, totalJh, unplannedReason, weekLoad, absentSet, toDay, type Item } from "./plan.ts";
 
 const MON = "2026-09-28"; // lundi
 const A = { id: "a", name: "A", capacity: 1 };
@@ -143,4 +143,12 @@ test("en retard mais en attente : la tâche suivante avance en parallèle", () =
 test("terminée sans date de fin : ne finit pas après aujourd'hui", () => {
   const x = item({ estimate_jh: 10, owner_ids: ["a"], status: "done" });
   assert.deepEqual(schedule([x], [A], [], MON, "2026-10-02").spans.get(x.id), { start: MON, end: "2026-10-02", planned: "2026-10-09" });
+});
+
+test("terminée sans date de début : début déduit de l'estimation", () => {
+  assert.equal(startBefore("2026-09-04", 10, [A], []), "2026-08-24"); // 10 jours ouvrés
+  assert.equal(startBefore("2026-09-04", 10, [A, B], []), "2026-08-31"); // à deux : 5 jours
+  assert.equal(startBefore("2026-09-04", 1, [{ ...A, capacity: 0.5 }], []), "2026-09-03");
+  const abs = [{ id: "z", person_id: "a", start_date: "2026-09-02", end_date: "2026-09-02" }];
+  assert.equal(startBefore("2026-09-04", 3, [A], abs), "2026-09-01");
 });

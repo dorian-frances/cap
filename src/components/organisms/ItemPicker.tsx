@@ -5,7 +5,7 @@ import { useRef, useState } from "react";
 import { Menu } from "@base-ui/react/menu";
 import { Popover } from "@base-ui/react/popover";
 import { Plus } from "lucide-react";
-import { isWeekend, toDay, toIso, todayIso, fmtDay, type Item, type Plan, type Status } from "@/lib/plan";
+import { isWeekend, startBefore, toDay, toIso, todayIso, fmtDay, type Item, type Plan, type Status } from "@/lib/plan";
 import type { Data, Store } from "@/lib/store";
 import { cx } from "@/lib/cx";
 import type { PickKind } from "./Timeline";
@@ -28,9 +28,9 @@ export function ItemPicker({ state, data, plan, store, onClose: close, onStep, o
   const common = <K extends keyof Item>(k: K) => (items.every((i) => i[k] === items[0]?.[k]) ? items[0]?.[k] : undefined);
 
   if (state.kind === "estimate") return <EstimatePopover state={state} items={items} store={store} onClose={onClose} />;
-  if (state.kind === "start" || state.kind === "done") return <DateStep kind={state.kind} state={state} items={items} plan={plan} store={store} onClose={onClose} />;
+  if (state.kind === "start" || state.kind === "done") return <DateStep kind={state.kind} state={state} items={items} data={data} plan={plan} store={store} onClose={onClose} />;
 
-  // Le focus ne revient pas à l'ancre : il doit pouvoir passer à l'étape de date.
+  // Le focus ne revient pas à l'ancre : sinon il serait repris au sélecteur suivant (raccourcis enchaînés, étape de date).
   const menu = (children: React.ReactNode, onKeyDown?: (e: React.KeyboardEvent) => void) => (
     <Menu.Root open onOpenChange={(o) => !o && onClose()}>
       <MenuContent anchor={state.anchor} className="w-[272px]" onKeyDown={onKeyDown} finalFocus={false}>{children}</MenuContent>
@@ -109,8 +109,8 @@ export function ItemPicker({ state, data, plan, store, onClose: close, onStep, o
 const prevWorkday = (iso: string) => { let d = toDay(iso) - 1; while (isWeekend(d)) d--; return toIso(d); };
 
 /** Date de démarrage ou de fin d'une ou plusieurs tâches (aujourd'hui par défaut, modifiable a posteriori). */
-function DateStep({ kind, state, items, plan, store, onClose }: {
-  kind: "start" | "done"; state: NonNullable<PickerState>; items: Item[]; plan: Plan; store: Store; onClose: () => void;
+function DateStep({ kind, state, items, data, plan, store, onClose }: {
+  kind: "start" | "done"; state: NonNullable<PickerState>; items: Item[]; data: Data; plan: Plan; store: Store; onClose: () => void;
 }) {
   const cal = useRef<HTMLDivElement>(null);
   const today = todayIso();
@@ -118,7 +118,11 @@ function DateStep({ kind, state, items, plan, store, onClose }: {
   const apply = (iso: string) => {
     for (const it of items) {
       if (kind === "done") {
-        const began = it.started_on ?? plan.spans.get(it.id)?.start ?? iso;
+        // Sans date de début : celle du calcul si la tâche était déjà en cours, sinon déduite de l'estimation.
+        const computed = plan.spans.get(it.id)?.start;
+        const owners = data.people.filter((p) => it.owner_ids.includes(p.id));
+        const began = it.started_on
+          ?? (it.status === "doing" && computed && computed <= iso ? computed : startBefore(iso, Number(it.estimate_jh), owners, data.absences));
         store.updateItems([it.id], { status: "done", done_on: iso, started_on: began > iso ? iso : began });
       } else if (it.status === "done") {
         store.updateItems([it.id], { started_on: it.done_on && iso > it.done_on ? it.done_on : iso });
@@ -131,13 +135,16 @@ function DateStep({ kind, state, items, plan, store, onClose }: {
   const chip = "h-6 rounded-md border border-stone-200 px-2 text-xs text-stone-600 transition-colors duration-150 hover:border-stone-300 hover:bg-stone-50";
   return (
     <Popover.Root open onOpenChange={(o) => !o && onClose()}>
-      <PopoverContent anchor={state.anchor} initialFocus={() => cal.current?.querySelector<HTMLElement>('[data-day][tabindex="0"]') ?? true} className="min-w-0 p-2.5">
+      <PopoverContent anchor={state.anchor} finalFocus={false} initialFocus={() => cal.current?.querySelector<HTMLElement>('[data-day][tabindex="0"]') ?? true} className="min-w-0 p-2.5">
         <div className="mb-2 flex items-center gap-2 px-1.5 text-xs text-stone-500">
           <StatusIcon status={kind === "start" ? "doing" : "done"} size={12} />
           {kind === "start" ? "En cours depuis le…" : "Terminé le…"}
           <span className="flex-1" /><Kbd>↵</Kbd>
         </div>
         <div ref={cal}><Calendar start={current ?? today} end={current ?? today} onPick={apply} /></div>
+        {kind === "done" && items.some((i) => !i.started_on) && (
+          <p className="mt-1.5 max-w-[252px] px-1.5 text-[11px] leading-snug text-stone-400">Sans date de début, elle est déduite de l&apos;estimation ; modifiable ensuite depuis le panneau.</p>
+        )}
         <div className="mt-2 flex items-center gap-1.5 border-t border-stone-100 pt-2.5">
           <button type="button" className={chip} onClick={() => apply(today)}>Aujourd&apos;hui</button>
           <button type="button" className={chip} onClick={() => apply(prevWorkday(today))}>Veille ouvrée</button>
@@ -157,7 +164,7 @@ function EstimatePopover({ state, items, store, onClose }: { state: NonNullable<
   };
   return (
     <Popover.Root open onOpenChange={(o) => !o && onClose()}>
-      <PopoverContent anchor={state.anchor} align="end" className="w-[272px] p-3">
+      <PopoverContent anchor={state.anchor} align="end" finalFocus={false} className="w-[272px] p-3">
         <form className="flex flex-col gap-2.5" onSubmit={(e) => { e.preventDefault(); save(value); }}>
           <label htmlFor="estimate" className="flex items-center text-xs text-stone-500">Estimation<span className="flex-1" /><Kbd>E</Kbd></label>
           <div className="flex h-9 items-center gap-2 rounded-[7px] border border-accent-500 px-2.5 ring-[3px] ring-accent-100">
