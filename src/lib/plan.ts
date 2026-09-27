@@ -16,8 +16,12 @@ export type Item = {
   milestone_date: string | null;
   target_id: string | null;
   description?: string;
+  started_on?: string | null; // démarrage réel (ou prévu) ; posé en passant « En cours »
+  done_on?: string | null; // fin réelle ; posée en passant « Terminé »
+  overrun_load?: number; // part du temps des owners gardée pendant un retard (1 = tout, 0 = en attente)
 };
-export type Span = { start: string; end: string }; // dates ISO, bornes incluses
+/** Dates ISO, bornes incluses. `planned` : fin prévue par l'estimation, quand elle diffère de la fin affichée. */
+export type Span = { start: string; end: string; planned?: string };
 export type Row = { item: Item; depth: number; hasChildren: boolean };
 export type Plan = {
   spans: Map<string, Span | null>;
@@ -72,14 +76,20 @@ export function orderItems(items: Item[]): Row[] {
 }
 
 /**
- * Calcule début/fin de chaque Item.
- * - Feuille : JH répartis entre ses owners ; chaque owner enchaîne ses Items par priorité.
+ * Planning des Items.
+ * - Faits d'abord : tâches démarrées ou terminées, à leur date de début réelle (sinon au plus tôt).
+ *   Une tâche non terminée occupe ses owners au moins jusqu'à aujourd'hui, même si sa fin prévue est passée,
+ *   à hauteur de `overrun_load` : le reste de leur temps va aux tâches suivantes, en parallèle.
+ *   Une tâche terminée s'arrête à sa date de fin réelle.
+ * - Puis les tâches à faire, par priorité, jamais avant aujourd'hui : chaque owner les enchaîne
+ *   dès qu'il est libre ; un Item démarre quand tous ses owners le sont. Les JH sont répartis entre owners.
  *   Disponibilité d'un owner un jour donné = capacité, 0 le week-end ou en absence.
  * - Parent : enveloppe de ses enfants. Jalon : sa date.
- * - null = non planifiable (pas d'owner, pas de date…).
+ * - null = non planifiable (pas d'owner, pas d'estimation, pas de capacité).
  */
-export function schedule(items: Item[], people: Person[], absences: Absence[], startIso: string): Plan {
+export function schedule(items: Item[], people: Person[], absences: Absence[], startIso: string, today = todayIso()): Plan {
   const start = toDay(startIso);
+  const now = toDay(today);
   const capacity = new Map(people.map((p) => [p.id, Number(p.capacity)]));
   const absent = absentSet(absences);
 
@@ -88,37 +98,55 @@ export function schedule(items: Item[], people: Person[], absences: Absence[], s
   const last = new Map<string, string>(); // person -> dernier Item planifié
   const after = new Map<string, string>();
   const left = (p: string, d: number) =>
-    isWeekend(d) || absent.has(`${p}:${d}`) ? 0 : capacity.get(p)! - (used.get(`${p}:${d}`) ?? 0);
+    isWeekend(d) || absent.has(`${p}:${d}`) ? 0 : Math.max(0, capacity.get(p)! - (used.get(`${p}:${d}`) ?? 0));
+  const take = (p: string, d: number, jh: number) => used.set(`${p}:${d}`, (used.get(`${p}:${d}`) ?? 0) + jh);
 
   const rows = orderItems(items);
   const spans = new Map<string, Span | null>();
+  const leaves = rows.filter((r) => !r.hasChildren).map((r) => r.item);
+  const ordered = [...leaves.filter((i) => i.status !== "todo"), ...leaves.filter((i) => i.status === "todo")];
 
-  for (const { item, hasChildren } of rows) {
-    if (hasChildren) continue;
+  for (const item of ordered) {
     const owners = item.owner_ids.filter((o) => capacity.has(o));
-    if (!owners.length) { spans.set(item.id, null); continue; }
+    const jh = Number(item.estimate_jh);
+    const done = item.status === "done";
+    if (!owners.length || (!(jh > 0) && !done)) { spans.set(item.id, null); continue; }
 
-    const s = Math.max(start, ...owners.map((o) => free.get(o) ?? start));
-    const blocker = owners.find((o) => last.has(o) && (free.get(o) ?? start) === s);
-    let remaining = Number(item.estimate_jh);
-    let first: number | null = null;
+    const fixed = item.status !== "todo" && item.started_on ? toDay(item.started_on) : null;
+    const earliest = item.status === "todo" ? Math.max(start, now) : start;
+    const s = fixed ?? Math.max(earliest, ...owners.map((o) => free.get(o) ?? earliest));
+    const blocker = fixed === null ? owners.find((o) => last.has(o) && free.get(o) === s) : undefined;
+
+    // Répartition des JH jour par jour (simulée, validée ensuite jusqu'à la fin réelle).
+    const alloc: [number, string, number][] = [];
+    let remaining = jh;
+    let first: number | null = jh > 0 ? null : s;
     let d = s;
-    for (; d < start + HORIZON; d++) {
+    for (; jh > 0 && d < s + HORIZON; d++) {
       const total = owners.reduce((sum, o) => sum + left(o, d), 0);
       if (total <= 1e-9) continue;
       first ??= d;
       const ratio = Math.min(1, remaining / total);
-      for (const o of owners) used.set(`${o}:${d}`, (used.get(`${o}:${d}`) ?? 0) + left(o, d) * ratio);
+      for (const o of owners) alloc.push([d, o, left(o, d) * ratio]);
       remaining -= total * ratio;
       if (remaining <= 1e-9) break;
     }
     if (first === null || remaining > 1e-9) { spans.set(item.id, null); continue; }
+
+    const planned = d;
+    // Terminée : à sa date de fin réelle (sans date, pas après aujourd'hui). Sinon : au moins jusqu'à aujourd'hui.
+    const end = done ? (item.done_on ? toDay(item.done_on) : Math.min(planned, Math.max(now, s))) : Math.max(planned, now);
+    for (const [day, o, q] of alloc) if (day <= end) take(o, day, q);
+    // Dépassement : la tâche garde sa part du temps de ses owners jusqu'à sa fin réelle.
+    const share = Number(item.overrun_load ?? 1);
+    for (let x = planned; x <= end && end > planned; x++) for (const o of owners) take(o, x, left(o, x) * share);
+
     if (blocker) after.set(item.id, last.get(blocker)!);
     for (const o of owners) {
-      free.set(o, left(o, d) > 1e-9 ? d : d + 1);
-      last.set(o, item.id);
+      const next = left(o, end) > 1e-9 ? end : end + 1;
+      if (next >= (free.get(o) ?? -Infinity)) { free.set(o, next); last.set(o, item.id); }
     }
-    spans.set(item.id, { start: toIso(first), end: toIso(d) });
+    spans.set(item.id, { start: toIso(Math.min(first, end)), end: toIso(end), ...(planned !== end ? { planned: toIso(planned) } : {}) });
   }
 
   // Parents : enfants d'abord (parcours inverse).
@@ -160,9 +188,22 @@ export function isLate(item: Item, plan: Plan, items: Item[]): boolean {
 
 /** Pourquoi un Item n'est pas planifiable. */
 export function unplannedReason(item: Item, people: Person[]) {
-  if (!item.owner_ids.some((o) => people.some((p) => p.id === o))) return "Pas d'owner";
+  const noOwner = !item.owner_ids.some((o) => people.some((p) => p.id === o));
+  const noJh = !(Number(item.estimate_jh) > 0);
+  if (noOwner && noJh) return "Pas d'owner ni d'estimation";
+  if (noOwner) return "Pas d'owner";
+  if (noJh) return "Pas d'estimation";
   return "Pas de capacité";
 }
+
+/** Jours ouvrés entre la fin prévue par l'estimation et la fin réelle (0 = dans les temps). */
+export function slip(span: Span | null | undefined) {
+  if (!span?.planned || span.planned >= span.end) return 0;
+  return workingDays(toIso(toDay(span.planned) + 1), span.end);
+}
+
+/** En retard aujourd'hui : pas terminé et fin prévue dépassée. */
+export const overdue = (item: Item, span: Span | null | undefined) => item.status !== "done" && slip(span) > 0;
 
 /** Occupation d'une personne sur une semaine : part de sa capacité réellement utilisée, ou "abs". */
 export function weekLoad(plan: Plan, person: Person, absent: Set<string>, mondayDay: number): number | "abs" {

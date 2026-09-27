@@ -39,6 +39,7 @@ UI : Tailwind v4, `@base-ui/react` (primitives accessibles), `lucide-react` (ic�
 | `J` / `K` ou `↑` / `↓` | Item suivant / précédent (`⇧` pour étendre la sélection) |
 | `Entrée` / `Espace` | Ouvrir le panneau |
 | `S` `A` `E` `M` | Statut, owners, estimation, jalon cible |
+| `S` puis `2` / `3` | Démarrer / terminer (date du jour par défaut, flèches + `Entrée` pour une autre date) |
 | `R` | Renommer |
 | `Tab` / `⇧Tab` | Imbriquer / désimbriquer |
 | `⌥↑` / `⌥↓` | Monter / descendre en priorité |

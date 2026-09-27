@@ -2,9 +2,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
-import { Download, TriangleAlert } from "lucide-react";
+import { Clock, Download, TriangleAlert } from "lucide-react";
 import {
-  isLate, orderItems, schedule, todayIso, fmtDay, type Absence, type Item, type Person, type Project, type Status,
+  isLate, orderItems, overdue, schedule, todayIso, fmtDay, type Absence, type Item, type Person, type Project, type Status,
 } from "@/lib/plan";
 import { axis } from "@/lib/axis";
 import { supabase } from "@/lib/supabase";
@@ -96,6 +96,7 @@ export default function SharePage() {
                 const span = plan.spans.get(item.id);
                 const st = hasChildren ? statusOf(item.id) : item.status;
                 const late = isLate(item, plan, items);
+                const behind = (hasChildren ? leavesOf(item.id) : [item]).some((l) => overdue(l, plan.spans.get(l.id)));
                 return (
                   <div key={item.id} className={`flex border-b border-stone-100 ${depth ? "h-9 animate-fade-in" : "h-12"}`}>
                     <div className="sticky left-0 z-10 flex shrink-0 items-center gap-2.5 border-r border-stone-100 bg-white pr-4" style={{ width: LEFT, paddingLeft: depth ? 44 : 16 }}>
@@ -107,9 +108,11 @@ export default function SharePage() {
                       ) : <span className="size-4" />)}
                       <StatusIcon status={st} size={depth ? 12 : 14} />
                       <span className={`min-w-0 flex-1 truncate ${depth ? "text-[13px] text-stone-600" : "text-[13px] font-medium"}`}>{item.title || "Sans titre"}</span>
-                      <span className={`whitespace-nowrap text-xs ${late ? "text-red-700" : "text-stone-500"}`}>
-                        {!span ? "À planifier" : st === "done" ? `Terminé le ${fmtDay(span.end)}` : `Fin prévue le ${fmtDay(span.end)}`}
-                        {late && <TriangleAlert size={12} className="ml-1 inline -translate-y-px text-red-600" />}
+                      <span className={`whitespace-nowrap text-xs ${late ? "text-red-700" : behind ? "text-amber-700" : "text-stone-500"}`}
+                        title={behind ? "En retard sur l'estimation, toujours en cours" : undefined}>
+                        {!span ? "À planifier" : st === "done" ? `Terminé le ${fmtDay(span.end)}` : behind ? "En retard · en cours" : `Fin prévue le ${fmtDay(span.end)}`}
+                        {late ? <TriangleAlert size={12} className="ml-1 inline -translate-y-px text-red-600" />
+                          : behind && <Clock size={12} className="ml-1 inline -translate-y-px text-amber-600" />}
                       </span>
                     </div>
                     <div className="relative shrink-0" style={{ width: ax.width, ...weekendBg(ax.px) }}>
@@ -128,6 +131,7 @@ export default function SharePage() {
         <footer className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-stone-500">
           <Legend items={[
             ...(["done", "doing", "todo"] as Status[]).map((k) => ({ label: k === "todo" ? "À venir" : k === "doing" ? "En cours" : "Terminé", swatch: { background: STATUS[k].bar, boxShadow: `inset 0 0 0 1px ${STATUS[k].border}` } })),
+            { label: "Retard sur l'estimation", swatch: { background: HATCH.overrun } },
             { label: "Après son jalon", swatch: { background: HATCH.late } },
             { label: "Jalon", swatch: { borderLeft: "1px dashed var(--color-stone-500)" }, line: true },
             { label: "Aujourd'hui", swatch: { borderLeft: "1px solid var(--color-accent-500)" }, line: true },

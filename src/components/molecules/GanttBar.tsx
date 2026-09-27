@@ -7,7 +7,9 @@ import { ACCENT, HATCH } from "../tokens";
 const motion = "transition-[left,width,opacity,box-shadow] duration-300 ease-out-quint";
 
 /**
- * Barre calculée d'un item. `lateFrom` : date du jalon dépassé, la partie au-delà est hachurée en rouge.
+ * Barre calculée d'un item.
+ * - Au-delà de la fin prévue (`span.planned`) : hachures ambre, retard sur l'estimation.
+ * - Au-delà de `lateFrom` (date du jalon dépassé) : hachures rouges.
  * Libellé dedans si la barre est assez large, sinon à droite (`auto`) ou masqué (`inside`).
  */
 export function GanttBar({ ax, span, label, tone, lateFrom, top, height, labelMode = "auto", selected, faded, title }: {
@@ -18,12 +20,17 @@ export function GanttBar({ ax, span, label, tone, lateFrom, top, height, labelMo
   const width = ax.x(span.end) - left + ax.px;
   const fits = width >= 64;
   const ov = lateFrom ? Math.max(left, ax.x(lateFrom) + ax.px) : 0;
+  const run = span.planned && span.planned < span.end ? Math.max(left, ax.x(span.planned) + ax.px) : 0;
   return (
     <>
       <div title={title} className={cx("absolute truncate rounded-[5px] px-2 text-xs font-medium", motion)}
         style={{ left, width, top, height, lineHeight: `${height}px`, background: tone.bar, color: tone.text, opacity: faded ? 0.75 : 1, boxShadow: `inset 0 0 0 1px ${tone.border}${selected ? `, 0 0 0 2px ${ACCENT}` : ""}` }}>
         {fits && label}
       </div>
+      {run > 0 && run < left + width && (
+        <div className={cx("pointer-events-none absolute rounded-r-[5px]", motion)}
+          style={{ left: run, width: left + width - run, top, height, background: HATCH.overrun, boxShadow: `inset 0 0 0 1px ${HATCH.overrunBorder}` }} />
+      )}
       {lateFrom && ov < left + width && (
         <div className={cx("pointer-events-none absolute rounded-r-[5px]", motion)}
           style={{ left: ov, width: left + width - ov, top, height, background: HATCH.late, boxShadow: `inset 0 0 0 1px ${HATCH.lateBorder}` }} />

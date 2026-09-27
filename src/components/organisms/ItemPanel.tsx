@@ -1,14 +1,14 @@
 "use client";
 
-import { ArrowRight, CalendarDays, ChevronRight, CircleSlash, Divide, Link2, Trash2, TriangleAlert, X } from "lucide-react";
+import { ArrowRight, CalendarCheck, CalendarDays, ChevronRight, CircleSlash, Clock, Divide, Link2, Play, Trash2, TriangleAlert, X } from "lucide-react";
 import {
-  absentSet, isWeekend, lateBy, toDay, totalJh, unplannedReason, workingDays, fmtDay,
+  absentSet, isWeekend, lateBy, overdue, slip, toDay, todayIso, totalJh, unplannedReason, workingDays, fmtDay,
   type Item, type Plan,
 } from "@/lib/plan";
 import type { Data, Store } from "@/lib/store";
 import type { PickKind } from "./Timeline";
 import { Avatar, Button, Chip, Diamond, InlineInput, Kbd, StatusIcon, Textarea } from "../atoms";
-import { IconButton, SectionTitle, SidePanel, SidePanelBody } from "../molecules";
+import { IconButton, SectionTitle, SegmentedControl, SidePanel, SidePanelBody } from "../molecules";
 import { STATUS } from "../tokens";
 
 type Props = {
@@ -31,6 +31,9 @@ export default function ItemPanel({ item, data, plan, store, closing, onClose, o
   const owners = people.filter((p) => item.owner_ids.includes(p.id));
   const target = items.find((i) => i.id === item.target_id);
   const late = lateBy(item, span, items);
+  const behind = !isParent && overdue(item, span);
+  const share = Number(item.overrun_load ?? 1);
+  const pct = (x: number) => `${Math.round(x * 100)} %`;
   const crumbs: Item[] = [];
   for (let p = items.find((i) => i.id === item.parent_id); p; p = items.find((i) => i.id === p!.parent_id)) crumbs.unshift(p);
 
@@ -40,21 +43,37 @@ export default function ItemPanel({ item, data, plan, store, closing, onClose, o
     if (isParent) {
       why.push({ icon: <Divide size={14} />, text: `Enveloppe de ${kids.length} sous-item${kids.length > 1 ? "s" : ""} · ${totalJh(items, item.id)} j au total` });
     } else {
-      const cap = owners.reduce((s, o) => s + Number(o.capacity), 0);
-      const who = owners.map((o) => `${o.name}${Number(o.capacity) < 1 ? ` à ${Math.round(o.capacity * 100)} %` : ""}`).join(" + ");
-      why.push({ icon: <Divide size={14} />, text: `${Number(item.estimate_jh)} j ÷ ${who} = ${Math.ceil(Number(item.estimate_jh) / cap)} jours de travail` });
+      // Démarrage : date réelle, ou calculé (au plus tôt aujourd'hui pour une tâche à faire).
       const prev = items.find((i) => i.id === plan.after.get(item.id));
-      if (prev) {
+      if (item.status !== "todo" && item.started_on) {
+        why.push({ icon: <Play size={14} />, text: `${item.started_on > todayIso() ? "Démarre" : "Démarrée"} le ${fmtDay(item.started_on)}` });
+      } else if (prev) {
         const shared = people.find((p) => prev.owner_ids.includes(p.id) && item.owner_ids.includes(p.id));
         const prevSpan = plan.spans.get(prev.id);
+        const who = shared?.name ?? "l'équipe";
+        const link = <button onClick={() => onOpen(prev.id)} className="underline decoration-stone-300 underline-offset-2 transition-colors hover:decoration-stone-500">{prev.title || "Sans titre"}</button>;
+        const prevShare = Number(prev.overrun_load ?? 1);
         why.push({
           icon: <ArrowRight size={14} />,
-          text: <>Démarre quand {shared?.name ?? "l'équipe"} termine{" "}
-            <button onClick={() => onOpen(prev.id)} className="underline decoration-stone-300 underline-offset-2 transition-colors hover:decoration-stone-500">{prev.title || "Sans titre"}</button>
-            {prevSpan && ` (${fmtDay(prevSpan.end)})`}</>,
+          text: overdue(prev, prevSpan)
+            ? prevShare === 0
+              ? <>Avance pendant que {link} est en attente (en retard, sans occuper {who})</>
+              : prevShare < 1
+              ? <>Avance en parallèle de {link}, en retard, qui garde {pct(prevShare)} du temps de {who}</>
+              : <>Attend que {who} termine {link}, en retard de {slip(prevSpan)} j et toujours en cours</>
+            : <>Démarre quand {who} termine {link}{prevSpan && ` (${fmtDay(prevSpan.end)})`}</>,
         });
       } else {
-        why.push({ icon: <ArrowRight size={14} />, text: `Démarre dès que possible (début du projet le ${fmtDay(data.project.start_date)})` });
+        why.push({ icon: <ArrowRight size={14} />, text: item.status === "todo" ? "Démarre dès que possible, au plus tôt aujourd'hui" : `Démarrée au plus tôt (début du projet le ${fmtDay(data.project.start_date)})` });
+      }
+      const cap = owners.reduce((sum, o) => sum + Number(o.capacity), 0);
+      const who = owners.map((o) => `${o.name}${Number(o.capacity) < 1 ? ` à ${Math.round(o.capacity * 100)} %` : ""}`).join(" + ");
+      why.push({ icon: <Divide size={14} />, text: `${Number(item.estimate_jh)} j ÷ ${who} = ${Math.ceil(Number(item.estimate_jh) / cap)} jours de travail · fin prévue le ${fmtDay(span.planned ?? span.end)}` });
+      if (item.status === "done" && item.done_on) {
+        const n = slip(span);
+        why.push(n
+          ? { icon: <CalendarCheck size={14} />, text: `Terminée le ${fmtDay(item.done_on)}, ${n} j ouvré${n > 1 ? "s" : ""} après la fin prévue` }
+          : { icon: <CalendarCheck size={14} />, text: `Terminée le ${fmtDay(item.done_on)}${span.planned ? ", avant la fin prévue" : ", dans les temps"}` });
       }
       const off = absentSet(absences);
       const lost = owners.map((o) => {
@@ -97,6 +116,18 @@ export default function ItemPanel({ item, data, plan, store, closing, onClose, o
             {!isParent && (
               <Chip onClick={(e) => onPick("status", e.currentTarget)}><StatusIcon status={item.status} size={13} />{STATUS[item.status].label}</Chip>
             )}
+            {!isParent && item.status !== "todo" && (
+              <Chip className="tabular-nums" onClick={(e) => onPick("start", e.currentTarget)}>
+                <Play size={12} className="text-stone-400" />
+                {item.started_on ? `Depuis le ${fmtDay(item.started_on)}` : <span className="text-stone-500">Date de début</span>}
+              </Chip>
+            )}
+            {!isParent && item.status === "done" && (
+              <Chip className="tabular-nums" onClick={(e) => onPick("done", e.currentTarget)}>
+                <CalendarCheck size={12} className="text-stone-400" />
+                {item.done_on ? `Terminée le ${fmtDay(item.done_on)}` : <span className="text-stone-500">Date de fin</span>}
+              </Chip>
+            )}
             {isParent ? <Chip disabled>Σ {totalJh(items, item.id)} j</Chip> : (
               <Chip className="tabular-nums" onClick={(e) => onPick("estimate", e.currentTarget)}>
                 {Number(item.estimate_jh) ? `${Number(item.estimate_jh).toLocaleString("fr-FR")} j` : <span className="text-stone-500">Estimer</span>}
@@ -113,6 +144,23 @@ export default function ItemPanel({ item, data, plan, store, closing, onClose, o
             </Chip>
           </div>
         </div>
+
+        {behind && (
+          <div className="flex animate-rise-in flex-col gap-2.5 rounded-lg border border-amber-200/70 bg-amber-50/70 px-3.5 py-3 text-[13px]">
+            <div className="flex items-center gap-2 font-semibold text-amber-900"><Clock size={14} className="text-amber-600" />
+              En retard de {slip(span)} j ouvré{slip(span) > 1 ? "s" : ""} sur l&apos;estimation</div>
+            <div className="text-[12.5px] text-amber-900/80">
+              Fin prévue le {fmtDay(span!.planned!)}, toujours en cours. Tant qu&apos;elle n&apos;est pas terminée, elle garde une part du temps de ses owners ; le reste va à leurs tâches suivantes.
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <SegmentedControl label="Part du temps gardée pendant le retard" value={String(share)}
+                onChange={(v) => store.updateItems([item.id], { overrun_load: Number(v) })}
+                options={[{ value: "1", label: "100 %" }, { value: "0.5", label: "50 %" }, { value: "0.2", label: "20 %" }, { value: "0", label: "En attente" }]} />
+              <span className="flex-1" />
+              <Button size="sm" onClick={(e) => onPick("done", e.currentTarget)}>Terminer…</Button>
+            </div>
+          </div>
+        )}
 
         {late > 0 && target && (
           <div className="flex animate-rise-in flex-col gap-2 rounded-lg border border-red-100 bg-red-50/60 px-3.5 py-3 text-[13px]">

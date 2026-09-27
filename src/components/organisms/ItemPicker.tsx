@@ -1,43 +1,57 @@
 "use client";
 
 // Menus d'édition d'un Item, ouverts au clic sur une valeur ou au clavier (S, A, E, M).
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Menu } from "@base-ui/react/menu";
 import { Popover } from "@base-ui/react/popover";
 import { Plus } from "lucide-react";
-import { toIso, fmtDay, type Item, type Plan, type Status } from "@/lib/plan";
+import { isWeekend, toDay, toIso, todayIso, fmtDay, type Item, type Plan, type Status } from "@/lib/plan";
 import type { Data, Store } from "@/lib/store";
 import { cx } from "@/lib/cx";
 import type { PickKind } from "./Timeline";
 import { Avatar, Diamond, Kbd, StatusIcon } from "../atoms";
-import { MenuCheckboxItem, MenuContent, MenuEmpty, MenuHeader, MenuItem, MenuRadioItem, MenuSeparator, PopoverContent } from "../molecules";
+import { Calendar, MenuCheckboxItem, MenuContent, MenuEmpty, MenuHeader, MenuItem, MenuRadioItem, MenuSeparator, PopoverContent } from "../molecules";
 import { STATUS } from "../tokens";
 
 export type PickerState = { kind: PickKind; ids: string[]; anchor: Element } | null;
 
-export function ItemPicker({ state, data, plan, store, onClose, onManageTeam }: {
-  state: PickerState; data: Data; plan: Plan; store: Store; onClose: () => void; onManageTeam: () => void;
+/**
+ * `onClose(kind)` ne ferme que si le sélecteur affiché est encore celui-là : passer du statut
+ * à sa date (`onStep`) ferme le menu sans fermer l'étape suivante.
+ */
+export function ItemPicker({ state, data, plan, store, onClose: close, onStep, onManageTeam }: {
+  state: PickerState; data: Data; plan: Plan; store: Store; onClose: (kind: PickKind) => void; onStep: (kind: "start" | "done") => void; onManageTeam: () => void;
 }) {
   if (!state) return null;
+  const onClose = () => close(state.kind);
   const items = data.items.filter((i) => state.ids.includes(i.id));
   const common = <K extends keyof Item>(k: K) => (items.every((i) => i[k] === items[0]?.[k]) ? items[0]?.[k] : undefined);
 
   if (state.kind === "estimate") return <EstimatePopover state={state} items={items} store={store} onClose={onClose} />;
+  if (state.kind === "start" || state.kind === "done") return <DateStep kind={state.kind} state={state} items={items} plan={plan} store={store} onClose={onClose} />;
 
+  // Le focus ne revient pas à l'ancre : il doit pouvoir passer à l'étape de date.
   const menu = (children: React.ReactNode, onKeyDown?: (e: React.KeyboardEvent) => void) => (
     <Menu.Root open onOpenChange={(o) => !o && onClose()}>
-      <MenuContent anchor={state.anchor} className="w-[272px]" onKeyDown={onKeyDown}>{children}</MenuContent>
+      <MenuContent anchor={state.anchor} className="w-[272px]" onKeyDown={onKeyDown} finalFocus={false}>{children}</MenuContent>
     </Menu.Root>
   );
 
   if (state.kind === "status") {
-    const set = (v: Status) => { store.updateItems(state.ids, { status: v }); onClose(); };
+    // « À faire » s'applique tout de suite ; « En cours » et « Terminé » demandent une date.
+    const set = (v: Status) => {
+      if (v === "todo") { store.updateItems(state.ids, { status: "todo", started_on: null, done_on: null }); onClose(); }
+      else onStep(v === "doing" ? "start" : "done");
+    };
     return menu(
       <>
         <MenuHeader label="Changer le statut…" kbd="S" />
         <Menu.RadioGroup value={common("status") ?? ""} onValueChange={(v) => set(v as Status)}>
           {(Object.keys(STATUS) as Status[]).map((s) => (
-            <MenuRadioItem key={s} value={s} kbd={STATUS[s].key}><StatusIcon status={s} />{STATUS[s].label}</MenuRadioItem>
+            <MenuRadioItem key={s} value={s} kbd={STATUS[s].key}
+              trailing={s !== "todo" && <span className="text-xs text-stone-400">{s === "doing" ? "depuis le…" : "le…"}</span>}>
+              <StatusIcon status={s} />{STATUS[s].label}
+            </MenuRadioItem>
           ))}
         </Menu.RadioGroup>
       </>,
@@ -89,6 +103,47 @@ export function ItemPicker({ state, data, plan, store, onClose, onManageTeam }: 
       </Menu.RadioGroup>
       {!milestones.length && <MenuEmpty>Créez des jalons depuis la vue Jalons.</MenuEmpty>}
     </>,
+  );
+}
+
+const prevWorkday = (iso: string) => { let d = toDay(iso) - 1; while (isWeekend(d)) d--; return toIso(d); };
+
+/** Date de démarrage ou de fin d'une ou plusieurs tâches (aujourd'hui par défaut, modifiable a posteriori). */
+function DateStep({ kind, state, items, plan, store, onClose }: {
+  kind: "start" | "done"; state: NonNullable<PickerState>; items: Item[]; plan: Plan; store: Store; onClose: () => void;
+}) {
+  const cal = useRef<HTMLDivElement>(null);
+  const today = todayIso();
+  const current = items.length === 1 ? (kind === "start" ? items[0].started_on : items[0].done_on) : null;
+  const apply = (iso: string) => {
+    for (const it of items) {
+      if (kind === "done") {
+        const began = it.started_on ?? plan.spans.get(it.id)?.start ?? iso;
+        store.updateItems([it.id], { status: "done", done_on: iso, started_on: began > iso ? iso : began });
+      } else if (it.status === "done") {
+        store.updateItems([it.id], { started_on: it.done_on && iso > it.done_on ? it.done_on : iso });
+      } else {
+        store.updateItems([it.id], { status: "doing", started_on: iso, done_on: null });
+      }
+    }
+    onClose();
+  };
+  const chip = "h-6 rounded-md border border-stone-200 px-2 text-xs text-stone-600 transition-colors duration-150 hover:border-stone-300 hover:bg-stone-50";
+  return (
+    <Popover.Root open onOpenChange={(o) => !o && onClose()}>
+      <PopoverContent anchor={state.anchor} initialFocus={() => cal.current?.querySelector<HTMLElement>('[data-day][tabindex="0"]') ?? true} className="min-w-0 p-2.5">
+        <div className="mb-2 flex items-center gap-2 px-1.5 text-xs text-stone-500">
+          <StatusIcon status={kind === "start" ? "doing" : "done"} size={12} />
+          {kind === "start" ? "En cours depuis le…" : "Terminé le…"}
+          <span className="flex-1" /><Kbd>↵</Kbd>
+        </div>
+        <div ref={cal}><Calendar start={current ?? today} end={current ?? today} onPick={apply} /></div>
+        <div className="mt-2 flex items-center gap-1.5 border-t border-stone-100 pt-2.5">
+          <button type="button" className={chip} onClick={() => apply(today)}>Aujourd&apos;hui</button>
+          <button type="button" className={chip} onClick={() => apply(prevWorkday(today))}>Veille ouvrée</button>
+        </div>
+      </PopoverContent>
+    </Popover.Root>
   );
 }
 

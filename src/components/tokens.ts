@@ -12,6 +12,9 @@ export const ACCENT = "#5b5bd6";
 export const HATCH = {
   late: "repeating-linear-gradient(135deg,rgba(220,38,38,.30) 0 2px,rgba(253,236,236,.95) 2px 5px)",
   lateBorder: "#f0a8a8",
+  // Retard sur l'estimation (ambre) : distinct du dépassement de jalon (rouge).
+  overrun: "repeating-linear-gradient(135deg,rgba(217,119,6,.32) 0 2px,rgba(254,243,199,.95) 2px 5px)",
+  overrunBorder: "#efc587",
   absence: "repeating-linear-gradient(135deg,#d6d3d1 0 2px,#f4f3f1 2px 5px)",
   absenceOverlay: "repeating-linear-gradient(135deg,rgba(168,162,158,.5) 0 2px,transparent 2px 5px)",
 };

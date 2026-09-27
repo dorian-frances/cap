@@ -7,7 +7,7 @@ import type { Person } from "@/lib/plan";
 import type { Zoom } from "@/lib/axis";
 import { cx } from "@/lib/cx";
 import { Avatar, Button, buttonCls, Switch } from "../atoms";
-import { Legend, MenuCheckboxItem, MenuContent, MenuEmpty, MenuItem, MenuLabel, PopoverContent, SegmentedControl, Toolbar } from "../molecules";
+import { Legend, MenuCheckboxItem, MenuContent, MenuEmpty, MenuItem, MenuLabel, MenuSeparator, PopoverContent, SegmentedControl, Toolbar } from "../molecules";
 import { HATCH } from "../tokens";
 
 const ZOOMS: { value: Zoom; label: string }[] = [{ value: "semaine", label: "Semaine" }, { value: "mois", label: "Mois" }, { value: "trimestre", label: "Trimestre" }];
@@ -21,19 +21,26 @@ export function ZoomControl({ zoom, onZoom, onToday }: { zoom: Zoom; onZoom: (z:
   );
 }
 
-export function TimelineToolbar({ people, ownerFilter, onOwnerFilter, colorBy, onColorBy, showDone, onShowDone, zoom, onNew }: {
+export function TimelineToolbar({ people, ownerFilter, onOwnerFilter, colorBy, onColorBy, showDone, onShowDone, lateOnly, onLateOnly, zoom, onNew }: {
   people: Person[]; ownerFilter: Set<string>; onOwnerFilter: (s: Set<string>) => void;
   colorBy: "status" | "owner"; onColorBy: (c: "status" | "owner") => void; showDone: boolean; onShowDone: (v: boolean) => void;
-  zoom: React.ReactNode; onNew: () => void;
+  lateOnly: boolean; onLateOnly: (v: boolean) => void; zoom: React.ReactNode; onNew: () => void;
 }) {
-  const n = ownerFilter.size;
+  const n = ownerFilter.size + (lateOnly ? 1 : 0);
+  const label = [lateOnly && "En retard", ownerFilter.size && `${ownerFilter.size} owner${ownerFilter.size > 1 ? "s" : ""}`].filter(Boolean).join(" · ");
   return (
     <Toolbar>
       <Menu.Root>
         <Menu.Trigger className={cx(buttonCls(n ? "secondary" : "dashed", "sm"), "font-normal", n > 0 && "border-accent-200 bg-accent-50 text-accent-800 hover:bg-accent-50")}>
-          <ListFilter size={13} />{n ? `${n} owner${n > 1 ? "s" : ""}` : "Filtrer"}
+          <ListFilter size={13} />{n ? label : "Filtrer"}
         </Menu.Trigger>
         <MenuContent>
+          <MenuLabel>Avancement</MenuLabel>
+          <MenuCheckboxItem checked={lateOnly} onCheckedChange={onLateOnly}
+            trailing={<span className="text-xs text-stone-400">fin prévue dépassée</span>}>
+            <span className="rounded-[4px] bg-amber-100 px-1 text-[11px] font-medium text-amber-800">+j</span>En retard
+          </MenuCheckboxItem>
+          <MenuSeparator />
           <MenuLabel>Owners</MenuLabel>
           {people.map((p) => (
             <MenuCheckboxItem key={p.id} checked={ownerFilter.has(p.id)}
@@ -41,7 +48,7 @@ export function TimelineToolbar({ people, ownerFilter, onOwnerFilter, colorBy, o
               <Avatar person={p} /><span className="truncate">{p.name}</span>
             </MenuCheckboxItem>
           ))}
-          {n > 0 && <MenuItem icon={<X size={14} />} onClick={() => onOwnerFilter(new Set())}><span className="text-stone-500">Effacer le filtre</span></MenuItem>}
+          {n > 0 && <MenuItem icon={<X size={14} />} onClick={() => { onOwnerFilter(new Set()); onLateOnly(false); }}><span className="text-stone-500">Effacer les filtres</span></MenuItem>}
           {!people.length && <MenuEmpty>Aucune personne.</MenuEmpty>}
         </MenuContent>
       </Menu.Root>

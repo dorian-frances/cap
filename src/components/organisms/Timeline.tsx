@@ -3,7 +3,7 @@
 import { useState, type ReactNode, type RefObject } from "react";
 import { GripVertical, Plus, TriangleAlert } from "lucide-react";
 import {
-  lateBy, isLate, totalJh, unplannedReason, fmtDay,
+  lateBy, isLate, overdue, slip, totalJh, unplannedReason, fmtDay,
   type Item, type Person, type Plan, type Row,
 } from "@/lib/plan";
 import type { Axis } from "@/lib/axis";
@@ -12,7 +12,8 @@ import { AvatarStack, AxisHeader, AxisLines, GanttBar, SummaryBar, weekendBg } f
 import { Chevron, StatusIcon } from "../atoms";
 import { STATUS, personColor } from "../tokens";
 
-export type PickKind = "status" | "owners" | "estimate" | "milestone";
+// start / done : date de démarrage ou de fin, demandée après le choix du statut.
+export type PickKind = "status" | "owners" | "estimate" | "milestone" | "start" | "done";
 export const LEFT = 380;
 
 type Props = {
@@ -20,6 +21,9 @@ type Props = {
   people: Person[];
   plan: Plan;
   rows: Row[];
+  unplanned: Row[]; // groupe « À planifier »
+  groupOpen: boolean;
+  onToggleGroup: () => void;
   ax: Axis;
   colorBy: "status" | "owner";
   selected: Set<string>;
@@ -61,7 +65,12 @@ export default function Timeline({ scrollRef, ...p }: Props) {
     );
   };
 
-  const rowEl = ({ item, depth, hasChildren }: Row) => {
+  const pathOf = (it: Item): string => {
+    const parent = items.find((i) => i.id === it.parent_id);
+    return parent ? `${pathOf(parent)}${parent.title || "Sans titre"} › ` : "";
+  };
+
+  const rowEl = ({ item, depth, hasChildren }: Row, inGroup = false) => {
     const sel = p.selected.has(item.id);
     const span = plan.spans.get(item.id);
     const late = hasChildren ? isLate(item, plan, items) : lateBy(item, span, items) > 0;
@@ -69,7 +78,7 @@ export default function Timeline({ scrollRef, ...p }: Props) {
     const ring = sel ? "#f3f3fc" : "#fff";
     const hint = drop?.id === item.id ? (drop.where === "before" ? "shadow-[inset_0_2px_0_var(--color-accent-600)]" : "shadow-[inset_0_-2px_0_var(--color-accent-600)]") : "";
     return (
-      <div key={item.id} data-row={item.id} role="row" aria-selected={sel}
+      <div key={inGroup ? `u-${item.id}` : item.id} data-row={item.id} role="row" aria-selected={sel}
         className={cx("group flex h-8 select-none transition-[background-color,opacity] duration-150 starting:opacity-0", sel ? "bg-accent-50/70" : "hover:bg-stone-50", hint, dragId === item.id && "opacity-50")}
         onClick={(e) => p.onRowClick(item.id, e)}
         onContextMenu={() => p.onContext(item.id)}
@@ -114,10 +123,16 @@ export default function Timeline({ scrollRef, ...p }: Props) {
           ) : (
             <span data-cell="title" onDoubleClick={() => p.onStartRename(item.id)}
               className={cx("min-w-0 truncate text-[13px]", hasChildren && "font-semibold", !item.title && "text-stone-400")}>
-              {item.title || "Sans titre"}
+              {inGroup && <span className="text-stone-400">{pathOf(item)}</span>}{item.title || "Sans titre"}
             </span>
           )}
           {late && <TriangleAlert size={13} className="shrink-0 animate-fade-in text-red-600" aria-label="Après son jalon" />}
+          {!hasChildren && overdue(item, span) && (
+            <span title={`En retard de ${slip(span)} j ouvrés sur l'estimation (fin prévue le ${fmtDay(span!.planned!)})`}
+              className="shrink-0 animate-fade-in rounded-[4px] bg-amber-100 px-1 text-[11px] font-medium tabular-nums leading-4 text-amber-800">
+              +{slip(span)} j
+            </span>
+          )}
           <span className="flex-1" />
           <button aria-label="Ajouter un sous-item" title="Ajouter un sous-item"
             onClick={(e) => { e.stopPropagation(); p.onAddChild(item.id); }}
@@ -151,7 +166,7 @@ export default function Timeline({ scrollRef, ...p }: Props) {
           {!span && (
             <span className="pointer-events-none absolute top-1.5 animate-fade-in whitespace-nowrap rounded-[5px] border border-dashed border-amber-300 bg-amber-50/60 px-2 text-xs leading-[18px] text-amber-800"
               style={{ left: (ax.today - ax.from) * ax.px + 8 }}>
-              À planifier · {hasChildren ? "aucun sous-item planifiable" : unplannedReason(item, people).toLowerCase()}
+              {inGroup ? unplannedReason(item, people) : `À planifier · ${hasChildren ? "sous-items à planifier" : unplannedReason(item, people).toLowerCase()}`}
             </span>
           )}
         </div>
@@ -170,6 +185,20 @@ export default function Timeline({ scrollRef, ...p }: Props) {
         </div>
         {p.rows.map((r) => rowEl(r))}
         {p.footer}
+        {p.unplanned.length > 0 && (
+          <>
+            <div className="flex h-9 border-t border-stone-100">
+              <button onClick={p.onToggleGroup} aria-expanded={p.groupOpen}
+                className="sticky left-0 flex items-center gap-2 border-r border-stone-100 bg-white pl-[34px] pr-3 text-left transition-colors hover:bg-stone-50" style={{ width: LEFT }}>
+                <span className="text-stone-500"><Chevron open={p.groupOpen} /></span>
+                <span className="text-[13px] font-medium">À planifier</span>
+                <span className="text-xs tabular-nums text-stone-400">{p.unplanned.length}</span>
+                <span className="min-w-0 flex-1 truncate text-right text-[11px] text-stone-400">Sans owner ou sans estimation</span>
+              </button>
+            </div>
+            {p.groupOpen && p.unplanned.map((r) => rowEl(r, true))}
+          </>
+        )}
         <AxisLines ax={ax} milestones={milestones} left={LEFT} items={items} plan={plan} />
       </div>
     </div>

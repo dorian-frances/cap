@@ -2,7 +2,7 @@
 
 // État d'un projet côté client : chargement, écritures optimistes, annulation.
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { Absence, Item, Person, Project } from "./plan";
+import { isWeekend, toDay, toIso, todayIso, type Absence, type Item, type Person, type Project } from "./plan";
 import { supabase } from "./supabase";
 import { toasts } from "@/components/molecules/Toast";
 
@@ -153,6 +153,8 @@ export function useProject(id: string) {
     await write(supabase.from("people").insert([a, b, c].map((p) => ({ ...p, project_id: pid }))));
     const start = data!.project.start_date;
     const d = (days: number) => new Date(Date.parse(start) + days * 86_400_000).toISOString().slice(0, 10);
+    // Dates réelles relatives à aujourd'hui, ramenées au jour ouvré précédent.
+    const ago = (days: number) => { let x = toDay(todayIso()) - days; while (isWeekend(x)) x--; return toIso(x); };
     const it = (f: Partial<Item>): Item => ({
       id: uid(), parent_id: null, type: "feature", title: "", position: 0, estimate_jh: 0,
       owner_ids: [], status: "todo", milestone_date: null, target_id: null, description: "", ...f,
@@ -163,9 +165,9 @@ export function useProject(id: string) {
     // Une seule insertion, parents avant enfants.
     await restoreItems([
       demo, it({ type: "milestone", title: "V1", milestone_date: d(46) }), auth, shop,
-      it({ title: "Connexion SSO", parent_id: auth.id, position: 1, estimate_jh: 5, owner_ids: [a.id], status: "done" }),
-      it({ title: "Gestion des rôles", parent_id: auth.id, position: 2, estimate_jh: 5, owner_ids: [c.id], status: "doing" }),
-      it({ title: "Catalogue", parent_id: shop.id, position: 1, estimate_jh: 12, owner_ids: [a.id, b.id], status: "doing" }),
+      it({ title: "Connexion SSO", parent_id: auth.id, position: 1, estimate_jh: 5, owner_ids: [a.id], status: "done", started_on: ago(14), done_on: ago(6) }),
+      it({ title: "Gestion des rôles", parent_id: auth.id, position: 2, estimate_jh: 5, owner_ids: [c.id], status: "doing", started_on: ago(11) }),
+      it({ title: "Catalogue", parent_id: shop.id, position: 1, estimate_jh: 12, owner_ids: [a.id, b.id], status: "doing", started_on: ago(3) }),
       it({ title: "Paiement", parent_id: shop.id, position: 2, estimate_jh: 5, owner_ids: [b.id], target_id: demo.id }),
       it({ title: "Notifications", position: 3, estimate_jh: 3, owner_ids: [c.id] }),
       it({ title: "Back-office", position: 4, estimate_jh: 12, owner_ids: [c.id] }),

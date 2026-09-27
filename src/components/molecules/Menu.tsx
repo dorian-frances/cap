@@ -17,13 +17,13 @@ export const itemCls = "flex h-8 cursor-default select-none items-center gap-2.5
 
 type Placement = { side?: "top" | "bottom" | "left" | "right"; align?: "start" | "center" | "end"; sideOffset?: number };
 
-export function MenuContent({ anchor, side, align = "start", sideOffset = 6, className, onKeyDown, children }: Placement & {
-  anchor?: Element | null; className?: string; onKeyDown?: (e: React.KeyboardEvent) => void; children: ReactNode;
+export function MenuContent({ anchor, side, align = "start", sideOffset = 6, className, onKeyDown, finalFocus, children }: Placement & {
+  anchor?: Element | null; className?: string; onKeyDown?: (e: React.KeyboardEvent) => void; finalFocus?: Menu.Popup.Props["finalFocus"]; children: ReactNode;
 }) {
   return (
     <Menu.Portal>
       <Menu.Positioner anchor={anchor} side={side} align={align} sideOffset={sideOffset} className="z-50">
-        <Menu.Popup className={cx(popupCls, className)} onKeyDown={onKeyDown}>{children}</Menu.Popup>
+        <Menu.Popup className={cx(popupCls, className)} onKeyDown={onKeyDown} finalFocus={finalFocus}>{children}</Menu.Popup>
       </Menu.Positioner>
     </Menu.Portal>
   );

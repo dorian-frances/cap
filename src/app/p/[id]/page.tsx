@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { ContextMenu } from "@base-ui/react/context-menu";
 import { Check, ChevronRight, Link2, Plus } from "lucide-react";
-import { orderItems, schedule, type Item, type Row } from "@/lib/plan";
+import { orderItems, overdue, schedule, type Item, type Row } from "@/lib/plan";
 import { axis, type Zoom } from "@/lib/axis";
 import { useProject } from "@/lib/store";
 import { supabase } from "@/lib/supabase";
@@ -39,7 +39,7 @@ export default function Page() {
   );
 }
 
-const CELL: Record<PickKind, string> = { status: "status", owners: "owners", estimate: "estimate", milestone: "title" };
+const CELL: Record<PickKind, string> = { status: "status", start: "status", done: "status", owners: "owners", estimate: "estimate", milestone: "title" };
 const typing = (t: EventTarget | null) => t instanceof HTMLElement && (t.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(t.tagName));
 
 function ProjectPage() {
@@ -71,6 +71,10 @@ function ProjectPage() {
   const [colorBy, setColorBy] = useState<"status" | "owner">("status");
   const [showDone, setShowDone] = useState(true);
   const [ownerFilter, setOwnerFilter] = useState<Set<string>>(new Set());
+  const [lateOnly, setLateOnly] = useState(false);
+  const [groupOpen, setGroupOpen] = useState(true);
+  // Items créés pendant la session : restent à leur place tant qu'ils sont sélectionnés, même non planifiables.
+  const [fresh, setFresh] = useState<Set<string>>(new Set());
   const [openPerson, setOpenPerson] = useState<string | null>(null);
   const [ctxId, setCtxId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -90,17 +94,25 @@ function ProjectPage() {
   const byId = useMemo(() => new Map(items.map((i) => [i.id, i])), [items]);
 
   // Lignes visibles : parents repliés et filtres.
-  const rows = useMemo(() => {
+  // Lignes visibles : planifiées (arbre, parents repliables) et groupe « À planifier » (sans owner ou sans estimation).
+  const [rows, unplanned] = useMemo(() => {
+    const filtered = !showDone || ownerFilter.size > 0 || lateOnly;
     const keepLeaf = (r: Row) => (showDone || r.item.status !== "done")
-      && (!ownerFilter.size || r.item.owner_ids.some((o) => ownerFilter.has(o)));
+      && (!ownerFilter.size || r.item.owner_ids.some((o) => ownerFilter.has(o)))
+      && (!lateOnly || overdue(r.item, plan.spans.get(r.item.id)));
+    const pinned = (id: string) => fresh.has(id) && (id === cursor || id === renaming);
+    const toPlan = (r: Row) => !r.hasChildren && plan.spans.get(r.item.id) === null && !pinned(r.item.id);
     const kept = new Set<string>();
-    for (const r of allRows) if (!r.hasChildren && keepLeaf(r)) {
+    for (const r of allRows) if (!r.hasChildren && !toPlan(r) && keepLeaf(r)) {
       for (let it: Item | undefined = r.item; it; it = it.parent_id ? byId.get(it.parent_id) : undefined) kept.add(it.id);
     }
     const hidden = (it: Item): boolean => !!it.parent_id && (collapsed.has(it.parent_id) || hidden(byId.get(it.parent_id)!));
-    return allRows.filter((r) => (r.hasChildren ? kept.has(r.item.id) || (!ownerFilter.size && showDone) : kept.has(r.item.id)) && !hidden(r.item));
-  }, [allRows, byId, collapsed, showDone, ownerFilter]);
-  const order = useMemo(() => rows.map((r) => r.item.id), [rows]);
+    return [
+      allRows.filter((r) => (r.hasChildren ? kept.has(r.item.id) || !filtered : kept.has(r.item.id)) && !hidden(r.item)),
+      allRows.filter((r) => toPlan(r) && keepLeaf(r)).map((r) => ({ ...r, depth: 0 })),
+    ];
+  }, [allRows, byId, collapsed, showDone, ownerFilter, lateOnly, plan, fresh, cursor, renaming]);
+  const order = useMemo(() => [...rows, ...(groupOpen ? unplanned : [])].map((r) => r.item.id), [rows, unplanned, groupOpen]);
 
   const ax = useMemo(() => axis(zoom, data?.project.start_date ?? "2026-01-01", [
     ...[...plan.spans.values()].flatMap((s) => (s ? [s.start, s.end] : [])),
@@ -123,6 +135,7 @@ function ProjectPage() {
     const i = after ? sib.findIndex((s) => s.id === after) : sib.length - 1;
     const it = store.addItem({ parent_id: parentId, position: between(sib[i], sib[i + 1]) });
     if (parentId) setCollapsed((c) => { const n = new Set(c); n.delete(parentId); return n; });
+    setFresh((f) => new Set(f).add(it.id));
     setCursor(it.id); setSelected(new Set([it.id])); setRenaming(it.id);
     return it;
   };
@@ -264,6 +277,8 @@ function ProjectPage() {
   const commands: Command[] = [
     ...(targets().length ? [
       { id: "s", group: "Sur l'item", label: "Changer le statut…", keys: ["S"], keywords: "etat avancement", run: () => pickFor("status") },
+      { id: "start", group: "Sur l'item", label: "Démarrer…", keys: ["S", "2"], keywords: "en cours commencer date debut", run: () => pickFor("start") },
+      { id: "done", group: "Sur l'item", label: "Terminer…", keys: ["S", "3"], keywords: "fait fini date fin livrer", run: () => pickFor("done") },
       { id: "a", group: "Sur l'item", label: "Assigner à…", keys: ["A"], keywords: "owner responsable personne", run: () => pickFor("owners") },
       { id: "e", group: "Sur l'item", label: "Définir l'estimation…", keys: ["E"], keywords: "charge jours jh", run: () => pickFor("estimate") },
       { id: "m", group: "Sur l'item", label: "Cibler un jalon…", keys: ["M"], keywords: "milestone date", run: () => pickFor("milestone") },
@@ -309,10 +324,11 @@ function ProjectPage() {
         {view === "timeline" && (
           <>
             <TimelineToolbar people={data.people} ownerFilter={ownerFilter} onOwnerFilter={setOwnerFilter} colorBy={colorBy} onColorBy={setColorBy}
-              showDone={showDone} onShowDone={setShowDone} zoom={zoomCtl} onNew={newFromCursor} />
+              showDone={showDone} onShowDone={setShowDone} lateOnly={lateOnly} onLateOnly={setLateOnly} zoom={zoomCtl} onNew={newFromCursor} />
             <ContextMenu.Root>
               <ContextMenu.Trigger className="flex min-h-0 flex-1 flex-col">
                 <Timeline items={items} people={data.people} plan={plan} rows={rows} ax={ax}
+                  unplanned={unplanned} groupOpen={groupOpen} onToggleGroup={() => setGroupOpen((o) => !o)}
                   colorBy={colorBy} selected={selected} renaming={renaming} collapsed={collapsed} scrollRef={scrollRef}
                   header={<>
                     <div className="flex items-baseline gap-1.5"><span className="font-medium">Items</span><span className="text-xs tabular-nums text-stone-400">{features.length}</span></div>
@@ -334,6 +350,8 @@ function ProjectPage() {
                   <MenuItem kbd="Espace" onClick={() => openItem(ctxItem.id)}>Ouvrir</MenuItem>
                   <MenuSeparator />
                   <MenuItem kbd="S" onClick={() => pickFor("status", ctxTargets())}>Statut…</MenuItem>
+                  <MenuItem onClick={() => pickFor("start", ctxTargets())}>Démarrer le…</MenuItem>
+                  <MenuItem onClick={() => pickFor("done", ctxTargets())}>Terminer le…</MenuItem>
                   <MenuItem kbd="A" onClick={() => pickFor("owners", ctxTargets())}>Owners…</MenuItem>
                   <MenuItem kbd="E" onClick={() => pickFor("estimate", ctxTargets())}>Estimation…</MenuItem>
                   <MenuItem kbd="M" onClick={() => pickFor("milestone", ctxTargets())}>Jalon cible…</MenuItem>
@@ -375,7 +393,8 @@ function ProjectPage() {
           onDelete={() => remove([...selected])} onClear={() => setSelected(new Set())} />
       )}
 
-      <ItemPicker state={picker} data={data} plan={plan} store={store} onClose={() => setPicker(null)}
+      <ItemPicker state={picker} data={data} plan={plan} store={store}
+        onClose={(k) => setPicker((p) => (p?.kind === k ? null : p))} onStep={(k) => setPicker((p) => p && { ...p, kind: k })}
         onManageTeam={() => { setPicker(null); setParams({ view: "equipe", item: null }); setOpenPerson(store.addPerson("Nouvelle personne").id); }} />
       <CommandPalette open={palette} onOpenChange={setPalette} commands={commands}
         context={targets().length > 1 ? `${targets().length} items` : cursorItem?.title || undefined} />
