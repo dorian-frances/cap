@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { ContextMenu } from "@base-ui/react/context-menu";
 import { Check, ChevronRight, Link2, Plus } from "lucide-react";
-import { orderItems, overdue, schedule, type Item, type Row } from "@/lib/plan";
+import { orderItems, overdue, overloaded, schedule, type Item, type Row } from "@/lib/plan";
 import { axis, type Zoom } from "@/lib/axis";
 import { useProject } from "@/lib/store";
 import { supabase } from "@/lib/supabase";
@@ -306,6 +306,7 @@ function ProjectPage() {
   return (
     <AppShell
       sidebar={<Sidebar projectId={id} projectName={data.project.name} view={view} email={me}
+        alerts={(() => { const n = overloaded(plan).size; return n ? { equipe: { count: n, label: `${n} personne${n > 1 ? "s" : ""} en surcharge` } } : {}; })()}
         onView={(v) => setParams({ view: v, item: null })} onSearch={() => setPalette(true)} onShare={() => setShare(true)} />}
       title={<>
         <span className="text-stone-500">{data.project.name}</span>

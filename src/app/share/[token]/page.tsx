@@ -109,8 +109,8 @@ export default function SharePage() {
                       <StatusIcon status={st} size={depth ? 12 : 14} />
                       <span className={`min-w-0 flex-1 truncate ${depth ? "text-[13px] text-stone-600" : "text-[13px] font-medium"}`}>{item.title || "Sans titre"}</span>
                       <span className={`whitespace-nowrap text-xs ${late ? "text-red-700" : behind ? "text-amber-700" : "text-stone-500"}`}
-                        title={behind ? "En retard sur l'estimation, toujours en cours" : undefined}>
-                        {!span ? "À planifier" : st === "done" ? `Terminé le ${fmtDay(span.end)}` : behind ? "En retard · en cours" : `Fin prévue le ${fmtDay(span.end)}`}
+                        title={behind ? "Finit ou finira après sa fin prévue" : undefined}>
+                        {!span ? "À planifier" : st === "done" ? `Terminé le ${fmtDay(span.end)}` : behind ? "Glisse sur sa fin prévue" : `Fin prévue le ${fmtDay(span.end)}`}
                         {late ? <TriangleAlert size={12} className="ml-1 inline -translate-y-px text-red-600" />
                           : behind && <Clock size={12} className="ml-1 inline -translate-y-px text-amber-600" />}
                       </span>

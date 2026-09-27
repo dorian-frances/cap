@@ -18,8 +18,10 @@ export type Item = {
   description?: string;
   started_on?: string | null; // démarrage réel (ou prévu) ; posé en passant « En cours »
   done_on?: string | null; // fin réelle ; posée en passant « Terminé »
-  overrun_load?: number; // part du temps des owners gardée pendant un retard (1 = tout, 0 = en attente)
+  allocations?: Allocation[]; // part du temps de ses owners, datée ; 100 % sans entrée
 };
+/** « À partir de `from`, la tâche occupe `pct` du temps de ses owners » (0 = en attente). */
+export type Allocation = { from: string; pct: number };
 /** Dates ISO, bornes incluses. `planned` : fin prévue par l'estimation, quand elle diffère de la fin affichée. */
 export type Span = { start: string; end: string; planned?: string };
 export type Row = { item: Item; depth: number; hasChildren: boolean };
@@ -27,7 +29,8 @@ export type Plan = {
   spans: Map<string, Span | null>;
   after: Map<string, string>; // Item -> Item qui l'a fait attendre (même owner)
   used: Map<string, number>; // `${person}:${day}` -> JH consommés ce jour-là
-  freeFrom: Map<string, number>; // person -> premier jour où il est libre
+  freeFrom: Map<string, number>; // person -> lendemain de son dernier jour occupé (si après aujourd'hui)
+  overload: Map<string, { demand: number; ids: string[] }>; // `${person}:${day}` -> allocations déclarées > 100 %
 };
 
 const DAY = 86_400_000;
@@ -91,17 +94,28 @@ export function orderItems(items: Item[]): Row[] {
   return rows;
 }
 
+export const pctLabel = (pct: number) => (pct === 0 ? "En attente" : `${Math.round(pct * 100)} %`);
+
+/** Allocation d'une tâche un jour donné : dernière entrée datée avant ce jour, 100 % par défaut. */
+export function allocationOn(item: Item, iso: string) {
+  let pct = 1;
+  for (const a of [...(item.allocations ?? [])].sort((x, y) => x.from.localeCompare(y.from))) if (a.from <= iso) pct = Number(a.pct);
+  return pct;
+}
+
 /**
- * Planning des Items.
- * - Faits d'abord : tâches démarrées ou terminées, à leur date de début réelle (sinon au plus tôt).
- *   Une tâche non terminée occupe ses owners au moins jusqu'à aujourd'hui, même si sa fin prévue est passée,
- *   à hauteur de `overrun_load` : le reste de leur temps va aux tâches suivantes, en parallèle.
- *   Une tâche terminée s'arrête à sa date de fin réelle.
- * - Puis les tâches à faire, par priorité, jamais avant aujourd'hui : chaque owner les enchaîne
- *   dès qu'il est libre ; un Item démarre quand tous ses owners le sont. Les JH sont répartis entre owners.
- *   Disponibilité d'un owner un jour donné = capacité, 0 le week-end ou en absence.
- * - Parent : enveloppe de ses enfants. Jalon : sa date.
- * - null = non planifiable (pas d'owner, pas d'estimation, pas de capacité).
+ * Planning des Items, en quatre temps :
+ * 1. Terminées avec leurs deux dates : faits intangibles, placés sur leurs dates réelles.
+ * 2. En cours (date de début connue) : avancent en parallèle, chacune à son allocation datée
+ *    (100 % par défaut). Si les allocations d'une personne dépassent 100 %, chacune ralentit
+ *    au prorata et le jour est noté en surcharge. Pas terminée à sa fin de calcul : elle garde
+ *    son allocation jusqu'à aujourd'hui.
+ * 3. Anciennes tâches démarrées sans date de début : enchaînées par priorité.
+ * 4. À faire : par priorité, jamais avant aujourd'hui, dans le temps laissé libre par les autres ;
+ *    chaque owner les enchaîne, un Item démarre quand tous ses owners sont libres.
+ * Fin prévue (engagement) d'une tâche démarrée : son estimation à l'allocation du jour de démarrage,
+ * sur la seule disponibilité de ses owners. Au-delà : retard ou glissement.
+ * Parent : enveloppe de ses enfants. Jalon : sa date. null : non planifiable.
  */
 export function schedule(items: Item[], people: Person[], absences: Absence[], startIso: string, today = todayIso()): Plan {
   const start = toDay(startIso);
@@ -110,59 +124,113 @@ export function schedule(items: Item[], people: Person[], absences: Absence[], s
   const absent = absentSet(absences);
 
   const used = new Map<string, number>();
+  const occupant = new Map<string, string>(); // `${person}:${day}` -> dernier Item qui l'a occupé
+  const overload = new Map<string, { demand: number; ids: string[] }>();
   const free = new Map<string, number>();
-  const last = new Map<string, string>(); // person -> dernier Item planifié
+  const last = new Map<string, string>(); // person -> dernier Item enchaîné
   const after = new Map<string, string>();
-  const left = (p: string, d: number) =>
-    isWeekend(d) || absent.has(`${p}:${d}`) ? 0 : Math.max(0, capacity.get(p)! - (used.get(`${p}:${d}`) ?? 0));
-  const take = (p: string, d: number, jh: number) => used.set(`${p}:${d}`, (used.get(`${p}:${d}`) ?? 0) + jh);
+  const cap = (p: string, d: number) => (isWeekend(d) || absent.has(`${p}:${d}`) ? 0 : capacity.get(p)!);
+  const left = (p: string, d: number) => Math.max(0, cap(p, d) - (used.get(`${p}:${d}`) ?? 0));
+  const take = (p: string, d: number, q: number, id: string) => {
+    if (q <= 1e-12) return;
+    used.set(`${p}:${d}`, (used.get(`${p}:${d}`) ?? 0) + q);
+    occupant.set(`${p}:${d}`, id);
+  };
 
   const rows = orderItems(items);
   const spans = new Map<string, Span | null>();
   const leaves = rows.filter((r) => !r.hasChildren).map((r) => r.item);
-  // Terminées avec leurs deux dates d'abord (faits intangibles), puis en cours, puis à faire.
-  const closed = (i: Item) => i.status === "done" && !!i.started_on && !!i.done_on;
-  const ordered = [
-    ...leaves.filter(closed),
-    ...leaves.filter((i) => i.status !== "todo" && !closed(i)),
-    ...leaves.filter((i) => i.status === "todo"),
-  ];
-  const cap = (p: string, d: number) => (isWeekend(d) || absent.has(`${p}:${d}`) ? 0 : capacity.get(p)!);
+  const ownersOf = (i: Item) => i.owner_ids.filter((o) => capacity.has(o));
+  const allocs = new Map(leaves.map((i) => [i.id, (i.allocations ?? []).map((a) => [toDay(a.from), Number(a.pct)] as const).sort((x, y) => x[0] - y[0])]));
+  const pctOn = (id: string, d: number) => { let p = 1; for (const [f, v] of allocs.get(id)!) { if (f > d) break; p = v; } return p; };
+  // Engagement : l'estimation à l'allocation du jour de démarrage (0 compté comme 100 %).
+  const commit = (i: Item, owners: string[], from: number) => {
+    const pct = pctOn(i.id, from) || 1;
+    let rest = Number(i.estimate_jh);
+    if (!owners.length || rest <= 0) return from;
+    let d = from;
+    for (; d < from + HORIZON; d++) { rest -= owners.reduce((sum, o) => sum + cap(o, d) * pct, 0); if (rest <= 1e-9) break; }
+    return d;
+  };
+  const span = (a: number, b: number, planned: number): Span => ({ start: toIso(a), end: toIso(b), ...(planned !== b ? { planned: toIso(planned) } : {}) });
 
-  for (const item of ordered) {
-    const owners = item.owner_ids.filter((o) => capacity.has(o));
+  const closed = (i: Item) => i.status === "done" && !!i.started_on && !!i.done_on;
+  const started = (i: Item) => i.status !== "todo" && !!i.started_on && !closed(i);
+
+  // 1. Terminées avec leurs dates : la barre suit les dates réelles, les JH répartis sur la période.
+  for (const item of leaves.filter(closed)) {
+    const owners = ownersOf(item);
+    const a = toDay(item.started_on!);
+    const b = Math.max(a, toDay(item.done_on!));
+    let total = 0;
+    for (let d = a; d <= b; d++) for (const o of owners) total += cap(o, d);
+    const ratio = total ? Math.min(1, Number(item.estimate_jh) / total) : 0;
+    for (let d = a; d <= b; d++) for (const o of owners) take(o, d, Math.min(left(o, d), cap(o, d) * ratio), item.id);
+    spans.set(item.id, span(a, b, owners.length ? commit(item, owners, a) : b));
+  }
+
+  // 2. En cours : simulation jour par jour, allocations au prorata.
+  type Run = { item: Item; owners: string[]; from: number; rest: number; first: number | null; end: number | null; lastChange: number; done: boolean };
+  const runs: Run[] = [];
+  for (const item of leaves.filter(started)) {
+    const owners = ownersOf(item);
+    const jh = Number(item.estimate_jh);
+    if (!owners.length || !(jh > 0)) { spans.set(item.id, null); continue; }
+    const changes = allocs.get(item.id)!;
+    runs.push({ item, owners, from: toDay(item.started_on!), rest: jh, first: null, end: null, lastChange: changes.at(-1)?.[0] ?? 0, done: item.status === "done" });
+  }
+  if (runs.length) {
+    const first = Math.min(...runs.map((r) => r.from));
+    const horizon = Math.max(now, ...runs.map((r) => Math.max(r.from, r.lastChange))) + HORIZON;
+    for (let d = first; d < horizon; d++) {
+      // Fini ou en attente définitive (0 % sans changement à venir) une fois aujourd'hui passé : on s'arrête.
+      if (d > now && runs.every((r) => r.end !== null || (d > r.lastChange && pctOn(r.item.id, d) === 0))) break;
+      const byPerson = new Map<string, { run: Run; pct: number }[]>();
+      for (const run of runs) {
+        if (d < run.from) continue;
+        const working = run.end === null;
+        if (!working && (run.done || d > now)) continue; // au-delà de sa fin, occupe ses owners jusqu'à aujourd'hui
+        const pct = pctOn(run.item.id, d);
+        if (pct <= 0) continue;
+        for (const o of run.owners) byPerson.set(o, [...(byPerson.get(o) ?? []), { run, pct }]);
+      }
+      const gain = new Map<Run, number>();
+      for (const [p, list] of byPerson) {
+        const avail = left(p, d);
+        if (avail <= 1e-9) continue;
+        const demand = list.reduce((sum, x) => sum + x.pct, 0);
+        if (demand > 1 + 1e-9) overload.set(`${p}:${d}`, { demand, ids: list.map((x) => x.run.item.id) });
+        for (const { run, pct } of list) {
+          const q = (avail * pct) / Math.max(1, demand);
+          take(p, d, q, run.item.id);
+          if (run.end === null) gain.set(run, (gain.get(run) ?? 0) + q);
+        }
+      }
+      for (const [run, q] of gain) {
+        run.first ??= d;
+        run.rest -= q;
+        if (run.rest <= 1e-9) run.end = d;
+      }
+    }
+    for (const run of runs) {
+      const planned = commit(run.item, run.owners, run.from);
+      const calc = run.end ?? Math.max(now, planned); // sans fin calculable (en attente), jusqu'à aujourd'hui au moins
+      const end = run.done ? Math.min(calc, Math.max(now, run.from)) : Math.max(calc, now);
+      spans.set(run.item.id, span(Math.min(run.first ?? run.from, end), end, planned));
+    }
+  }
+
+  // 3 et 4. Enchaînement par priorité (anciennes tâches démarrées sans date, puis à faire).
+  const chained = [...leaves.filter((i) => i.status !== "todo" && !i.started_on), ...leaves.filter((i) => i.status === "todo")];
+  for (const item of chained) {
+    const owners = ownersOf(item);
     const jh = Number(item.estimate_jh);
     const done = item.status === "done";
-
-    if (closed(item)) {
-      // La barre suit les dates réelles, quelle que soit la charge de ses owners ce jour-là.
-      const a = toDay(item.started_on!);
-      const b = Math.max(a, toDay(item.done_on!));
-      // Fin prévue : l'estimation sur la seule disponibilité de ses owners.
-      let p = a;
-      for (let rest = jh; rest > 1e-9 && owners.length && p < a + HORIZON; p++) {
-        rest -= owners.reduce((sum, o) => sum + cap(o, p), 0);
-        if (rest <= 1e-9) break;
-      }
-      if (!owners.length) p = b;
-      // Les JH sont répartis sur la période réelle.
-      let total = 0;
-      for (let d = a; d <= b; d++) for (const o of owners) total += cap(o, d);
-      const ratio = total ? Math.min(1, jh / total) : 0;
-      for (let d = a; d <= b; d++) for (const o of owners) take(o, d, Math.min(left(o, d), cap(o, d) * ratio));
-      for (const o of owners) {
-        const next = left(o, b) > 1e-9 ? b : b + 1;
-        if (next >= (free.get(o) ?? -Infinity)) { free.set(o, next); last.set(o, item.id); }
-      }
-      spans.set(item.id, { start: toIso(a), end: toIso(b), ...(p !== b ? { planned: toIso(p) } : {}) });
-      continue;
-    }
     if (!owners.length || (!(jh > 0) && !done)) { spans.set(item.id, null); continue; }
 
-    const fixed = item.status !== "todo" && item.started_on ? toDay(item.started_on) : null;
     const earliest = item.status === "todo" ? Math.max(start, now) : start;
-    const s = fixed ?? Math.max(earliest, ...owners.map((o) => free.get(o) ?? earliest));
-    const blocker = fixed === null ? owners.find((o) => last.has(o) && free.get(o) === s) : undefined;
+    const s = Math.max(earliest, ...owners.map((o) => free.get(o) ?? earliest));
+    let blocker = owners.find((o) => last.has(o) && free.get(o) === s);
 
     // Répartition des JH jour par jour (simulée, validée ensuite jusqu'à la fin réelle).
     const alloc: [number, string, number][] = [];
@@ -183,17 +251,30 @@ export function schedule(items: Item[], people: Person[], absences: Absence[], s
     const planned = d;
     // Terminée : à sa date de fin réelle (sans date, pas après aujourd'hui). Sinon : au moins jusqu'à aujourd'hui.
     const end = done ? (item.done_on ? toDay(item.done_on) : Math.min(planned, Math.max(now, s))) : Math.max(planned, now);
-    for (const [day, o, q] of alloc) if (day <= end) take(o, day, q);
-    // Dépassement : la tâche garde sa part du temps de ses owners jusqu'à sa fin réelle.
-    const share = Number(item.overrun_load ?? 1);
-    for (let x = planned; x <= end && end > planned; x++) for (const o of owners) take(o, x, left(o, x) * share);
+    for (const [day, o, q] of alloc) if (day <= end) take(o, day, q, item.id);
+    for (let x = planned; x <= end && end > planned; x++) for (const o of owners) take(o, x, left(o, x) * pctOn(item.id, x), item.id);
 
+    // Attend une tâche en cours d'un de ses owners : celle qui l'occupait juste avant.
+    let waitedOn: string | undefined;
+    for (let x = first - 1; !blocker && !waitedOn && x >= s; x--)
+      for (const o of owners) { const occ = occupant.get(`${o}:${x}`); if (occ && occ !== item.id) { waitedOn = occ; break; } }
     if (blocker) after.set(item.id, last.get(blocker)!);
+    else if (waitedOn) after.set(item.id, waitedOn);
+    blocker = undefined;
     for (const o of owners) {
       const next = left(o, end) > 1e-9 ? end : end + 1;
       if (next >= (free.get(o) ?? -Infinity)) { free.set(o, next); last.set(o, item.id); }
     }
     spans.set(item.id, { start: toIso(Math.min(first, end)), end: toIso(end), ...(planned !== end ? { planned: toIso(planned) } : {}) });
+  }
+
+  // « Libre le » : lendemain du dernier jour occupé, s'il est après aujourd'hui.
+  const freeFrom = new Map<string, number>();
+  for (const [k, q] of used) {
+    if (q <= 1e-9) continue;
+    const i = k.lastIndexOf(":");
+    const p = k.slice(0, i), d = Number(k.slice(i + 1));
+    if (d >= now && d + 1 > (freeFrom.get(p) ?? 0)) freeFrom.set(p, d + 1);
   }
 
   // Parents : enfants d'abord (parcours inverse).
@@ -210,7 +291,7 @@ export function schedule(items: Item[], people: Person[], absences: Absence[], s
   for (const m of items)
     if (m.type === "milestone") spans.set(m.id, m.milestone_date ? { start: m.milestone_date, end: m.milestone_date } : null);
 
-  return { spans, after, used, freeFrom: free };
+  return { spans, after, used, freeFrom, overload };
 }
 
 /** JH d'un Item : les siens si feuille, somme des enfants sinon. */
@@ -249,8 +330,32 @@ export function slip(span: Span | null | undefined) {
   return workingDays(toIso(toDay(span.planned) + 1), span.end);
 }
 
-/** En retard aujourd'hui : pas terminé et fin prévue dépassée. */
+/** Pas terminée et finit (ou finira) après sa fin prévue : en retard, ou glissement annoncé. */
 export const overdue = (item: Item, span: Span | null | undefined) => item.status !== "done" && slip(span) > 0;
+
+/** Personnes en surcharge à partir d'aujourd'hui : première et dernière date, pic d'allocation. */
+export function overloaded(plan: Plan, today = todayIso()) {
+  const now = toDay(today);
+  const out = new Map<string, { from: number; to: number; peak: number }>();
+  for (const [k, { demand }] of plan.overload) {
+    const i = k.lastIndexOf(":");
+    const p = k.slice(0, i), d = Number(k.slice(i + 1));
+    if (d < now) continue;
+    const o = out.get(p);
+    out.set(p, o ? { from: Math.min(o.from, d), to: Math.max(o.to, d), peak: Math.max(o.peak, demand) } : { from: d, to: d, peak: demand });
+  }
+  return out;
+}
+
+/** Pic de surcharge d'une personne sur une semaine (null si aucune), avec les tâches en cause. */
+export function weekOverload(plan: Plan, personId: string, mondayDay: number) {
+  let best: { demand: number; ids: string[] } | null = null;
+  for (let d = mondayDay; d < mondayDay + 7; d++) {
+    const o = plan.overload.get(`${personId}:${d}`);
+    if (o && (!best || o.demand > best.demand)) best = o;
+  }
+  return best;
+}
 
 /** Occupation d'une personne sur une semaine : part de sa capacité réellement utilisée, ou "abs". */
 export function weekLoad(plan: Plan, person: Person, absent: Set<string>, mondayDay: number): number | "abs" {

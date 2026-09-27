@@ -2,13 +2,14 @@
 
 import { ArrowRight, CalendarCheck, CalendarDays, ChevronRight, CircleSlash, Clock, Divide, Link2, Play, Trash2, TriangleAlert, X } from "lucide-react";
 import {
-  absentSet, isWeekend, lateBy, overdue, slip, toDay, todayIso, totalJh, unplannedReason, workingDays, fmtDay,
+  absentSet, allocationOn, isWeekend, pctLabel, toIso, lateBy, overdue, slip, toDay, todayIso, totalJh, unplannedReason, workingDays, fmtDay,
   type Item, type Plan,
 } from "@/lib/plan";
 import type { Data, Store } from "@/lib/store";
 import type { PickKind } from "./Timeline";
 import { Avatar, Button, Chip, Diamond, InlineInput, Kbd, StatusIcon, Textarea } from "../atoms";
-import { IconButton, SectionTitle, SegmentedControl, SidePanel, SidePanelBody } from "../molecules";
+import { IconButton, SectionTitle, SidePanel, SidePanelBody } from "../molecules";
+import AllocationControl from "./AllocationControl";
 import { STATUS } from "../tokens";
 
 type Props = {
@@ -32,8 +33,20 @@ export default function ItemPanel({ item, data, plan, store, closing, onClose, o
   const target = items.find((i) => i.id === item.target_id);
   const late = lateBy(item, span, items);
   const behind = !isParent && overdue(item, span);
-  const share = Number(item.overrun_load ?? 1);
-  const pct = (x: number) => `${Math.round(x * 100)} %`;
+  const today = todayIso();
+  // Causes d'un glissement : surcharge partagée avec d'autres tâches, allocation réduite.
+  const partners = new Map<string, { names: Set<string>; from: number; to: number }>();
+  if (behind && span) for (let d = toDay(span.start); d <= toDay(span.end); d++)
+    for (const o of owners) {
+      const ov = plan.overload.get(`${o.id}:${d}`);
+      if (!ov?.ids.includes(item.id)) continue;
+      for (const id of ov.ids) if (id !== item.id) {
+        const pr = partners.get(id) ?? { names: new Set<string>(), from: d, to: d };
+        pr.names.add(o.name); pr.to = d;
+        partners.set(id, pr);
+      }
+    }
+  const reduced = (item.allocations ?? []).filter((a) => a.pct < 1 && span && a.from <= span.end).sort((a, b) => a.from.localeCompare(b.from))[0];
   const crumbs: Item[] = [];
   for (let p = items.find((i) => i.id === item.parent_id); p; p = items.find((i) => i.id === p!.parent_id)) crumbs.unshift(p);
 
@@ -52,20 +65,20 @@ export default function ItemPanel({ item, data, plan, store, closing, onClose, o
         const prevSpan = plan.spans.get(prev.id);
         const who = shared?.name ?? "l'équipe";
         const link = <button onClick={() => onOpen(prev.id)} className="underline decoration-stone-300 underline-offset-2 transition-colors hover:decoration-stone-500">{prev.title || "Sans titre"}</button>;
-        const prevShare = Number(prev.overrun_load ?? 1);
+        const parallel = prevSpan && prevSpan.end >= span.start && allocationOn(prev, span.start) < 1;
         why.push({
           icon: <ArrowRight size={14} />,
-          text: overdue(prev, prevSpan)
-            ? prevShare === 0
-              ? <>Avance pendant que {link} est en attente (en retard, sans occuper {who})</>
-              : prevShare < 1
-              ? <>Avance en parallèle de {link}, en retard, qui garde {pct(prevShare)} du temps de {who}</>
-              : <>Attend que {who} termine {link}, en retard de {slip(prevSpan)} j et toujours en cours</>
+          text: parallel
+            ? <>Avance en parallèle de {link}, où {who} est à {pctLabel(allocationOn(prev, span.start))}</>
+            : overdue(prev, prevSpan)
+              ? <>Attend que {who} termine {link}, en retard de {slip(prevSpan)} j et toujours en cours</>
             : <>Démarre quand {who} termine {link}{prevSpan && ` (${fmtDay(prevSpan.end)})`}</>,
         });
       } else {
         why.push({ icon: <ArrowRight size={14} />, text: item.status === "todo" ? "Démarre dès que possible, au plus tôt aujourd'hui" : `Démarrée au plus tôt (début du projet le ${fmtDay(data.project.start_date)})` });
       }
+      if (item.status === "doing" && (item.allocations ?? []).length)
+        why.push({ icon: <Clock size={14} />, text: `Allocation : ${[...(item.allocations ?? [])].sort((a, b) => a.from.localeCompare(b.from)).map((a) => `${pctLabel(a.pct)} à partir du ${fmtDay(a.from)}`).join(", ")}` });
       const cap = owners.reduce((sum, o) => sum + Number(o.capacity), 0);
       const who = owners.map((o) => `${o.name}${Number(o.capacity) < 1 ? ` à ${Math.round(o.capacity * 100)} %` : ""}`).join(" + ");
       why.push({ icon: <Divide size={14} />, text: `${Number(item.estimate_jh)} j ÷ ${who} = ${Math.ceil(Number(item.estimate_jh) / cap)} jours de travail · fin prévue le ${fmtDay(span.planned ?? span.end)}` });
@@ -146,21 +159,27 @@ export default function ItemPanel({ item, data, plan, store, closing, onClose, o
         </div>
 
         {behind && (
-          <div className="flex animate-rise-in flex-col gap-2.5 rounded-lg border border-amber-200/70 bg-amber-50/70 px-3.5 py-3 text-[13px]">
+          <div className="flex animate-rise-in flex-col gap-2 rounded-lg border border-amber-200/70 bg-amber-50/70 px-3.5 py-3 text-[13px]">
             <div className="flex items-center gap-2 font-semibold text-amber-900"><Clock size={14} className="text-amber-600" />
-              En retard de {slip(span)} j ouvré{slip(span) > 1 ? "s" : ""} sur l&apos;estimation</div>
-            <div className="text-[12.5px] text-amber-900/80">
-              Fin prévue le {fmtDay(span!.planned!)}, toujours en cours. Tant qu&apos;elle n&apos;est pas terminée, elle garde une part du temps de ses owners ; le reste va à leurs tâches suivantes.
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <SegmentedControl label="Part du temps gardée pendant le retard" value={String(share)}
-                onChange={(v) => store.updateItems([item.id], { overrun_load: Number(v) })}
-                options={[{ value: "1", label: "100 %" }, { value: "0.5", label: "50 %" }, { value: "0.2", label: "20 %" }, { value: "0", label: "En attente" }]} />
-              <span className="flex-1" />
+              {span!.planned! < today ? "En retard" : "Glissement prévu"} de {slip(span)} j ouvré{slip(span) > 1 ? "s" : ""} sur la fin prévue ({fmtDay(span!.planned!)})</div>
+            <ul className="flex flex-col gap-1 text-[12.5px] text-amber-900/80">
+              {[...partners].map(([id, pr]) => {
+                const other = items.find((i) => i.id === id);
+                return (
+                  <li key={id}>{[...pr.names].join(", ")} {pr.names.size > 1 ? "sont" : "est"} aussi sur{" "}
+                    <button onClick={() => onOpen(id)} className="underline decoration-amber-300 underline-offset-2">{other?.title || "Sans titre"}</button> : surcharge du {fmtDay(toIso(pr.from))} au {fmtDay(toIso(pr.to))}.</li>
+                );
+              })}
+              {reduced && <li>Allocation réduite à {pctLabel(reduced.pct)} à partir du {fmtDay(reduced.from)}.</li>}
+              {span!.planned! < today && <li>Pas terminée à temps : elle garde son allocation jusqu&apos;à ce qu&apos;elle soit terminée, la suite de ses owners glisse.</li>}
+            </ul>
+            <div className="flex gap-1.5">
               <Button size="sm" onClick={(e) => onPick("done", e.currentTarget)}>Terminer…</Button>
             </div>
           </div>
         )}
+
+        {item.status === "doing" && !isParent && <AllocationControl item={item} ownerNames={owners.map((o) => o.name).join(", ")} store={store} />}
 
         {late > 0 && target && (
           <div className="flex animate-rise-in flex-col gap-2 rounded-lg border border-red-100 bg-red-50/60 px-3.5 py-3 text-[13px]">

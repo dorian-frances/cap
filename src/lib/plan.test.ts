@@ -1,7 +1,7 @@
 // node --test src/lib/plan.test.ts
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { schedule as run, startBefore, isLate, lateBy, overdue, slip, totalJh, unplannedReason, weekLoad, absentSet, toDay, type Item } from "./plan.ts";
+import { schedule as run, startBefore, overloaded, weekOverload, isLate, lateBy, overdue, slip, totalJh, unplannedReason, weekLoad, absentSet, toDay, type Item } from "./plan.ts";
 
 const MON = "2026-09-28"; // lundi
 const A = { id: "a", name: "A", capacity: 1 };
@@ -132,7 +132,7 @@ test("sans estimation ou sans owner : à planifier, avec la raison", () => {
 });
 
 test("en retard mais en attente : la tâche suivante avance en parallèle", () => {
-  const x = item({ estimate_jh: 3, owner_ids: ["a"], status: "doing", started_on: MON, overrun_load: 0.2 });
+  const x = item({ estimate_jh: 3, owner_ids: ["a"], status: "doing", started_on: MON, allocations: [{ from: "2026-10-01", pct: 0.2 }] });
   const y = item({ estimate_jh: 2, owner_ids: ["a"] });
   const s = schedule([x, y], [A], [], MON, "2026-10-06").spans;
   assert.deepEqual(s.get(x.id), { start: MON, end: "2026-10-06", planned: "2026-09-30" });
@@ -160,4 +160,34 @@ test("terminée avec ses dates : la barre suit les dates réelles, même en para
   assert.deepEqual(s.get(closed.id), { start: "2026-08-24", end: "2026-09-04" });
   assert.equal(s.get(late.id)!.end, "2026-09-27");
   assert.equal(s.get(late.id)!.start, "2026-08-10");
+});
+
+test("allocation à 50 % : la tâche avance moitié moins vite, la suivante en parallèle", () => {
+  const x = item({ estimate_jh: 2, owner_ids: ["a"], status: "doing", started_on: MON, allocations: [{ from: MON, pct: 0.5 }] });
+  const y = item({ estimate_jh: 1, owner_ids: ["a"] });
+  const plan = schedule([x, y], [A], [], MON, MON);
+  assert.deepEqual(plan.spans.get(x.id), { start: MON, end: "2026-10-01" }); // engagée à 50 % : pas de glissement
+  assert.deepEqual(plan.spans.get(y.id), { start: MON, end: "2026-09-29" });
+  assert.equal(plan.overload.size, 0);
+});
+
+test("allocation réduite en cours de route : glissement par rapport à la fin prévue", () => {
+  const x = item({ estimate_jh: 5, owner_ids: ["a"], status: "doing", started_on: MON, allocations: [{ from: "2026-09-30", pct: 0.5 }] });
+  const s = schedule([x], [A], [], MON, MON).spans.get(x.id);
+  // lun 1, mar 1, puis 0,5/j pendant 6 jours ouvrés : fin le mer 7 au lieu du ven 2
+  assert.deepEqual(s, { start: MON, end: "2026-10-07", planned: "2026-10-02" });
+  assert.equal(slip(s), 3);
+  assert.equal(overdue(x, s), true);
+});
+
+test("surcharge : deux tâches à 100 % en parallèle ralentissent au prorata", () => {
+  const x = item({ estimate_jh: 2, owner_ids: ["a"], status: "doing", started_on: MON });
+  const y = item({ estimate_jh: 2, owner_ids: ["a"], status: "doing", started_on: MON });
+  const plan = schedule([x, y], [A], [], MON, MON);
+  assert.deepEqual(plan.spans.get(x.id), { start: MON, end: "2026-10-01", planned: "2026-09-29" });
+  assert.equal(slip(plan.spans.get(y.id)), 2);
+  assert.deepEqual(plan.overload.get(`a:${toDay(MON)}`), { demand: 2, ids: [x.id, y.id] });
+  assert.deepEqual(overloaded(plan, MON).get("a"), { from: toDay(MON), to: toDay("2026-10-01"), peak: 2 });
+  assert.equal(weekOverload(plan, "a", toDay(MON))?.demand, 2);
+  assert.equal(plan.freeFrom.get("a"), toDay("2026-10-02"));
 });

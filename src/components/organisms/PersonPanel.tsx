@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Plus, Trash2, X } from "lucide-react";
-import { orderItems, fmtDay, type Person, type Plan } from "@/lib/plan";
+import { allocationOn, pctLabel, orderItems, overloaded, todayIso, toIso, fmtDay, type Person, type Plan } from "@/lib/plan";
 import type { Data, Store } from "@/lib/store";
 import { Avatar, Button, InlineInput, Input, StatusIcon } from "../atoms";
 import { ConfirmDialog, DateRangePicker, Field, IconButton, SectionTitle, Select, SidePanel, SidePanelBody, fmtRange, type Range } from "../molecules";
@@ -17,6 +17,10 @@ export default function PersonPanel({ person, data, plan, store, closing, onClos
   const [range, setRange] = useState<Range | null>(null);
   const [label, setLabel] = useState("");
   const fresh = person.name === "Nouvelle personne";
+  const today = todayIso();
+  const doing = mine.filter((r) => r.item.status === "doing" && (!r.item.started_on || r.item.started_on <= today));
+  const total = doing.reduce((sum, r) => sum + allocationOn(r.item, today), 0);
+  const over = overloaded(plan).get(person.id);
 
   return (
     <SidePanel label="Fiche personne" width={400} closing={closing}
@@ -40,6 +44,19 @@ export default function PersonPanel({ person, data, plan, store, closing, onClos
           <Select label="Disponibilité" className="w-44" options={CAPACITIES} value={String(Math.round(person.capacity * 100))}
             onValueChange={(v) => store.updatePerson(person.id, { capacity: Number(v) / 100 })} />
         </Field>
+        {doing.length > 0 && (
+          <section className="flex flex-col gap-1">
+            <div className="flex items-center"><SectionTitle>En cours aujourd&apos;hui</SectionTitle><span className="flex-1" />
+              <span className={`text-xs font-medium tabular-nums ${total > 1 ? "text-red-700" : "text-stone-500"}`}>{Math.round(total * 100)} %</span></div>
+            {doing.map(({ item }) => (
+              <button key={item.id} onClick={() => onOpenItem(item.id)} className="-mx-2 flex h-8 items-center gap-2.5 rounded-md px-2 text-left text-[13px] transition-colors hover:bg-stone-50">
+                <StatusIcon status={item.status} /><span className="min-w-0 flex-1 truncate">{item.title || "Sans titre"}</span>
+                <span className="text-xs tabular-nums text-stone-500">{pctLabel(allocationOn(item, today))}</span>
+              </button>
+            ))}
+            {over && <p className="rounded-md bg-red-50 px-2.5 py-2 text-xs text-red-800">Surcharge jusqu&apos;à {Math.round(over.peak * 100)} % du {fmtDay(toIso(over.from))} au {fmtDay(toIso(over.to))} : ses tâches en cours ralentissent. Réduisez une allocation ou réassignez.</p>}
+          </section>
+        )}
         <section className="flex flex-col gap-1">
           <SectionTitle>Items, par ordre de priorité</SectionTitle>
           {mine.map(({ item }, i) => {

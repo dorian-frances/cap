@@ -3,7 +3,7 @@
 import { useState, type ReactNode, type RefObject } from "react";
 import { GripVertical, Plus, TriangleAlert } from "lucide-react";
 import {
-  lateBy, isLate, overdue, slip, totalJh, unplannedReason, fmtDay,
+  allocationOn, pctLabel, lateBy, isLate, overdue, slip, todayIso, totalJh, unplannedReason, fmtDay,
   type Item, type Person, type Plan, type Row,
 } from "@/lib/plan";
 import type { Axis } from "@/lib/axis";
@@ -127,8 +127,11 @@ export default function Timeline({ scrollRef, ...p }: Props) {
             </span>
           )}
           {late && <TriangleAlert size={13} className="shrink-0 animate-fade-in text-red-600" aria-label="Après son jalon" />}
+          {!hasChildren && item.status === "doing" && allocationOn(item, todayIso()) < 1 && (
+            <span title="Allocation du jour" className="shrink-0 text-[11px] tabular-nums text-stone-400">{pctLabel(allocationOn(item, todayIso()))}</span>
+          )}
           {!hasChildren && overdue(item, span) && (
-            <span title={`En retard de ${slip(span)} j ouvrés sur l'estimation (fin prévue le ${fmtDay(span!.planned!)})`}
+            <span title={`${span!.planned! < todayIso() ? "En retard" : "Glissement prévu"} de ${slip(span)} j ouvrés (fin prévue le ${fmtDay(span!.planned!)})`}
               className="shrink-0 animate-fade-in rounded-[4px] bg-amber-100 px-1 text-[11px] font-medium tabular-nums leading-4 text-amber-800">
               +{slip(span)} j
             </span>

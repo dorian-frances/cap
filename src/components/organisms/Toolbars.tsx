@@ -79,6 +79,7 @@ export function TeamToolbar({ zoom, onAbsence, onPerson }: { zoom: React.ReactNo
           { label: "Partiellement libre", swatch: { background: "var(--color-accent-50)" } },
           { label: "Libre", swatch: { boxShadow: "inset 0 0 0 1px var(--color-stone-200)" } },
           { label: "Absence", swatch: { background: HATCH.absence } },
+          { label: "Surcharge (> 100 %)", swatch: { background: "var(--color-red-100)" } },
         ]} />
       </span>
       <span className="flex-1" />

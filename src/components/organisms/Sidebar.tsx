@@ -27,8 +27,9 @@ const NavIcon = ({ active, children }: { active: boolean; children: ReactNode })
   <span className={cx("transition-colors duration-150", active ? "text-stone-900" : "text-stone-500")}>{children}</span>
 );
 
-export default function Sidebar({ projectId, projectName, view, onView, onSearch, onShare, email }: {
+export default function Sidebar({ projectId, projectName, view, onView, onSearch, onShare, email, alerts = {} }: {
   projectId: string; projectName: string; view: View; onView: (v: View) => void; onSearch: () => void; onShare: () => void; email: string;
+  alerts?: Partial<Record<View, { count: number; label: string }>>;
 }) {
   const router = useRouter();
   const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
@@ -54,7 +55,8 @@ export default function Sidebar({ projectId, projectName, view, onView, onSearch
       <div className="flex flex-col gap-px">
         {VIEWS.map((v) => (
           <button key={v.key} onClick={() => onView(v.key)} className={navCls(view === v.key)} aria-current={view === v.key ? "page" : undefined}>
-            <NavIcon active={view === v.key}>{v.icon}</NavIcon>{v.label}
+            <NavIcon active={view === v.key}>{v.icon}</NavIcon><span className="flex-1">{v.label}</span>
+            {alerts[v.key] && <span title={alerts[v.key]!.label} className="min-w-[18px] animate-fade-in rounded-full bg-red-100 px-1.5 text-center text-[11px] font-medium leading-[18px] text-red-700">{alerts[v.key]!.count}</span>}
           </button>
         ))}
       </div>

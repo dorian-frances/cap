@@ -34,8 +34,10 @@ Principe clé : **la barre n'est pas dessinée, elle est calculée** à partir d
   - *En cours* : date de début réelle (aujourd'hui par défaut, modifiable). Fin prévue = début + JH sur la disponibilité des owners.
   - *Terminée* : date de fin réelle, saisissable a posteriori.
 - **Tant qu'une tâche n'est pas terminée, elle est en cours** : si sa fin prévue est passée, elle se prolonge jusqu'à aujourd'hui (retard sur l'estimation, en ambre) et les tâches suivantes de ses owners glissent.
-- **Part du temps pendant un retard** : 100 % par défaut ; 50 %, 20 % ou « En attente » (0 %) quand on attend quelque chose. Le reste du temps va aux tâches suivantes, qui avancent en parallèle.
-- **Faits avant priorités** : les tâches démarrées ou terminées sont placées d'abord, les tâches à faire remplissent le temps libre restant.
+- **Allocation** : une tâche en cours occupe une part du temps de ses owners, datée (« 50 % à partir du 14 sept. », « En attente » = 0 %). 100 % par défaut : on vise le one-piece flow. Le reste du temps va aux autres tâches, en parallèle.
+- **Fin prévue = engagement** : date de début + JH à l'allocation du jour de démarrage, sur la disponibilité des owners. La fin de tâche sert de jalon : finir (ou prévoir de finir) après, c'est glisser.
+- **Surcharge** : si les allocations d'une personne dépassent 100 % un jour donné, ses tâches ralentissent au prorata (et glissent), et elle est signalée.
+- **Faits avant priorités** : les tâches terminées puis en cours sont placées d'abord, les tâches à faire remplissent le temps libre restant.
 - **Jalon client** : Item de type jalon, avec une date fixe saisie, affiché comme repère sur la timeline. Il ne pilote pas le calcul.
 - **Pas de fin de projet** : le projet est continu, on raisonne en date de livraison par Item.
 
@@ -111,10 +113,15 @@ Principe clé : **la barre n'est pas dessinée, elle est calculée** à partir d
 - Pour qui : PM, tech lead, client (vue partagée)
 - Résolu quand : « Démarrer » et « Terminer » enregistrent une date (modifiable, a posteriori) ; une tâche en cours dont la fin prévue est passée affiche « +n j » en ambre, se prolonge jusqu'à aujourd'hui et décale la suite de ses owners ; le filtre « En retard » les isole ; le panneau explique le glissement.
 
-### Retard en attente
-- Problème : P10
+### Allocation datée et glissement
+- Problème : P10, P2
 - Pour qui : PM, tech lead
-- Résolu quand : on indique la part du temps qu'une tâche en retard garde (100 %, 50 %, 20 %, en attente) et les tâches suivantes avancent en parallèle.
+- Résolu quand : on déclare « X à 50 % sur cette tâche à partir du … » ; la tâche ralentit, les suivantes avancent en parallèle ; si elle finira après sa fin prévue, « Glissement prévu de n j » avec la cause (allocation réduite, surcharge partagée avec telle tâche).
+
+### Alerte de surcharge
+- Problème : P2
+- Pour qui : PM, tech lead
+- Résolu quand : une personne dont les allocations cumulées dépassent 100 % est signalée (compteur sur « Équipe », badge « Surcharge », semaines en rouge avec les tâches en cause, détail dans sa fiche).
 
 ### Groupe « À planifier »
 - Problème : P11

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Plus } from "lucide-react";
-import { absentSet, orderItems, toIso, weekLoad, fmtDay } from "@/lib/plan";
+import { absentSet, orderItems, overloaded, toIso, weekLoad, weekOverload, fmtDay } from "@/lib/plan";
 import type { Axis } from "@/lib/axis";
 import type { Data, Store } from "@/lib/store";
 import { cx } from "@/lib/cx";
@@ -25,6 +25,8 @@ export default function TeamView({ data, plan, store, ax, scrollRef, toolbar, op
   const milestones = data.items.filter((i) => i.type === "milestone");
   const weeks = Array.from({ length: ax.days / 7 }, (_, w) => ax.from + w * 7);
   const [person, closing] = usePresence(data.people.find((p) => p.id === openPerson));
+  const over = overloaded(plan);
+  const title = (id: string) => data.items.find((i) => i.id === id)?.title || "Sans titre";
 
   return (
     <>
@@ -55,6 +57,10 @@ export default function TeamView({ data, plan, store, ax, scrollRef, toolbar, op
                       <span className="truncate font-medium">{p.name}</span>
                       <span className="text-xs text-stone-400">{Math.round(p.capacity * 100)} %</span>
                     </button>
+                    {over.has(p.id) && (
+                      <span title={`Allocations cumulées jusqu'à ${Math.round(over.get(p.id)!.peak * 100)} % du ${fmtDay(toIso(over.get(p.id)!.from))} au ${fmtDay(toIso(over.get(p.id)!.to))}`}
+                        className="shrink-0 animate-fade-in rounded-[4px] bg-red-50 px-1.5 text-[11px] font-medium leading-[18px] text-red-700">Surcharge</span>
+                    )}
                     <span className="text-xs text-stone-500">{free ? `libre le ${fmtDay(toIso(free))}` : "libre"}</span>
                   </div>
                   <div className="relative shrink-0" style={{ width: ax.width, ...weekendBg(ax.px) }}>
@@ -63,6 +69,8 @@ export default function TeamView({ data, plan, store, ax, scrollRef, toolbar, op
                       const wide = 7 * ax.px >= 44;
                       const base = "absolute top-2.5 h-6 rounded-[5px] text-center text-[11px] font-medium leading-6 tabular-nums transition-colors duration-300";
                       const style = { left: (w - ax.from) * ax.px + 3, width: 7 * ax.px - 6 };
+                      const ov = weekOverload(plan, p.id, w);
+                      if (ov) return <div key={w} title={`${Math.round(ov.demand * 100)} % : ${ov.ids.map(title).join(" + ")}`} className={`${base} bg-red-100 text-red-800`} style={style}>{wide && `${Math.round(ov.demand * 100)} %`}</div>;
                       if (load === "abs") return <div key={w} className={`${base} text-stone-600`} style={{ ...style, background: HATCH.absence }}>{wide && "Absent·e"}</div>;
                       if (!load) return null;
                       return <div key={w} title={`${load} % de sa capacité`} className={`${base} ${load >= 95 ? "bg-accent-100 text-accent-800" : "bg-accent-50 text-accent-600"}`} style={style}>{wide && `${load} %`}</div>;
