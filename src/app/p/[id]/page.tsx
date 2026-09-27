@@ -39,7 +39,7 @@ export default function Page() {
   );
 }
 
-const CELL: Record<PickKind, string> = { status: "status", start: "status", done: "status", owners: "owners", estimate: "estimate", milestone: "title" };
+const CELL: Record<PickKind, string> = { status: "status", start: "status", done: "status", owners: "owners", estimate: "estimate", extra: "estimate", milestone: "title" };
 const typing = (t: EventTarget | null) => t instanceof HTMLElement && (t.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(t.tagName));
 
 function ProjectPage() {
@@ -297,6 +297,7 @@ function ProjectPage() {
       { id: "done", group: "Sur l'item", label: "Terminer…", keys: ["S", "3"], keywords: "fait fini date fin livrer", run: () => pickFor("done") },
       { id: "a", group: "Sur l'item", label: "Assigner à…", keys: ["A"], keywords: "owner responsable personne", run: () => pickFor("owners") },
       { id: "e", group: "Sur l'item", label: "Définir l'estimation…", keys: ["E"], keywords: "charge jours jh", run: () => pickFor("estimate") },
+      { id: "extra", group: "Sur l'item", label: "Ajouter un avenant…", keywords: "retard anticiper glissement jh supplementaire", run: () => pickFor("extra") },
       { id: "m", group: "Sur l'item", label: "Cibler un jalon…", keys: ["M"], keywords: "milestone date", run: () => pickFor("milestone") },
       ...(cursor ? [{ id: "r", group: "Sur l'item", label: "Renommer", keys: ["R"], run: () => { setParams({ view: "timeline" }); setRenaming(cursor); } }] : []),
       { id: "del", group: "Sur l'item", label: "Supprimer", keys: ["⌫"], run: () => remove(targets()) },
@@ -371,6 +372,7 @@ function ProjectPage() {
                   <MenuItem onClick={() => pickFor("done", ctxTargets())}>Terminer le…</MenuItem>
                   <MenuItem kbd="A" onClick={() => pickFor("owners", ctxTargets())}>Owners…</MenuItem>
                   <MenuItem kbd="E" onClick={() => pickFor("estimate", ctxTargets())}>Estimation…</MenuItem>
+                  <MenuItem onClick={() => pickFor("extra", ctxTargets())}>Avenant…</MenuItem>
                   <MenuItem kbd="M" onClick={() => pickFor("milestone", ctxTargets())}>Jalon cible…</MenuItem>
                   <MenuSeparator />
                   <MenuItem kbd="R" onClick={() => setRenaming(ctxItem.id)}>Renommer</MenuItem>

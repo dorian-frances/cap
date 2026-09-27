@@ -22,7 +22,12 @@ export type Item = {
   started_on?: string | null; // démarrage réel (ou prévu) ; posé en passant « En cours »
   done_on?: string | null; // fin réelle ; posée en passant « Terminé »
   allocations?: Allocation[]; // part du temps de ses owners, datée ; 100 % sans entrée
+  extra_jh?: number; // avenant : retard anticipé, JH ajoutés à l'estimation sans changer la fin prévue
+  extra_note?: string; // motif de l'avenant
 };
+
+/** JH à réaliser : estimation + avenant. */
+export const workJh = (i: Item) => Number(i.estimate_jh) + Number(i.extra_jh ?? 0);
 /**
  * « À partir de `from`, `person` consacre `pct` de son temps à la tâche » (0 = en attente).
  * Sans `person` : vaut pour tous les owners. L'entrée la plus récente qui s'applique l'emporte.
@@ -193,7 +198,7 @@ export function schedule(items: Item[], people: Person[], absences: Absence[], s
     const b = Math.max(a, toDay(item.done_on!));
     let total = 0;
     for (let d = a; d <= b; d++) for (const o of owners) total += net(o, d);
-    const ratio = total ? Math.min(1, Number(item.estimate_jh) / total) : 0;
+    const ratio = total ? Math.min(1, workJh(item) / total) : 0;
     for (let d = a; d <= b; d++) for (const o of owners) take(o, d, Math.min(left(o, d), net(o, d) * ratio), item.id);
     spans.set(item.id, span(a, b, owners.length ? commit(item, owners, a) : b));
   }
@@ -203,7 +208,7 @@ export function schedule(items: Item[], people: Person[], absences: Absence[], s
   const runs: Run[] = [];
   for (const item of leaves.filter(started)) {
     const owners = ownersOf(item);
-    const jh = Number(item.estimate_jh);
+    const jh = workJh(item);
     if (!owners.length || !(jh > 0)) { spans.set(item.id, null); continue; }
     const changes = allocs.get(item.id)!;
     runs.push({ item, owners, from: toDay(item.started_on!), rest: jh, first: null, end: null, lastChange: changes.at(-1)?.day ?? 0, done: item.status === "done" });
@@ -258,7 +263,8 @@ export function schedule(items: Item[], people: Person[], absences: Absence[], s
   const chained = [...leaves.filter((i) => i.status !== "todo" && !i.started_on), ...leaves.filter((i) => i.status === "todo")];
   for (const item of chained) {
     const owners = ownersOf(item);
-    const jh = Number(item.estimate_jh);
+    const jh = workJh(item);
+    const est = Number(item.estimate_jh);
     const done = item.status === "done";
     if (!owners.length || (!(jh > 0) && !done)) { spans.set(item.id, null); continue; }
 
@@ -273,6 +279,7 @@ export function schedule(items: Item[], people: Person[], absences: Absence[], s
     const alloc: [number, string, number, boolean][] = []; // jour, owner, JH, journée pleine
     let remaining = jh;
     let first: number | null = jh > 0 ? null : s;
+    let promise: number | null = null; // fin prévue par l'estimation seule, avant l'avenant
     let d = s;
     for (; jh > 0 && d < s + HORIZON; d++) {
       const total = owners.reduce((sum, o) => sum + rate(item.id, o, d), 0);
@@ -281,11 +288,13 @@ export function schedule(items: Item[], people: Person[], absences: Absence[], s
       const ratio = Math.min(1, remaining / total);
       for (const o of owners) alloc.push([d, o, rate(item.id, o, d) * ratio, ratio > 1 - 1e-9]);
       remaining -= total * ratio;
+      if (promise === null && est > 0 && jh - remaining >= est - 1e-9) promise = d;
       if (remaining <= 1e-9) break;
     }
     if (first === null || remaining > 1e-9) { spans.set(item.id, null); continue; }
 
     const planned = d;
+    const promised = !done && promise !== null ? promise : planned;
     // Terminée : à sa date de fin réelle (sans date, pas après aujourd'hui). Sinon : au moins jusqu'à aujourd'hui.
     const end = done ? (item.done_on ? toDay(item.done_on) : Math.min(planned, Math.max(now, s))) : Math.max(planned, now);
     // Surcharge : ce qui est déclaré compte, même si l'owner n'a plus de temps à donner ce jour-là.
@@ -303,7 +312,7 @@ export function schedule(items: Item[], people: Person[], absences: Absence[], s
       const next = left(o, end) > 1e-9 ? end : end + 1;
       if (next >= (free.get(o) ?? -Infinity)) { free.set(o, next); last.set(o, item.id); }
     }
-    spans.set(item.id, { start: toIso(Math.min(first, end)), end: toIso(end), ...(planned !== end ? { planned: toIso(planned) } : {}) });
+    spans.set(item.id, { start: toIso(Math.min(first, end)), end: toIso(end), ...(promised !== end ? { planned: toIso(promised) } : {}) });
   }
 
   // « Libre le » : lendemain du dernier jour occupé, s'il est après aujourd'hui.

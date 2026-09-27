@@ -124,6 +124,11 @@ Principe clé : **la barre n'est pas dessinée, elle est calculée** à partir d
 - Pour qui : PM, tech lead
 - Résolu quand : une personne dont les allocations cumulées, défauts compris, dépassent 100 % est signalée (compteur sur « Équipe », badge « Surcharge », semaines en rouge avec les tâches en cause, détail dans sa fiche) ; sur la timeline, la tâche porte un badge « 120 % » ; son panneau détaille l'addition (« 100 % ici + 20 % défauts »), explique l'allongement et propose « Passer Hugues à 80 % ». Seule la surcharge d'aujourd'hui et à venir alerte : une surcharge passée est actée (elle se lit dans le glissement).
 
+### Avenant (retard anticipé)
+- Problème : P10, P2
+- Pour qui : PM, tech lead
+- Résolu quand : on ajoute « +2 JH, motif » à une tâche sans toucher à son estimation ; la tâche occupe ses owners d'autant plus longtemps et les tâches suivantes démarrent après ; la fin prévue reste celle de l'estimation, le surplus apparaît en hachures ambre avec « +n j », la colonne JH affiche « 3+2 j » et le panneau donne le motif.
+
 ### Couleur par personne
 - Problème : P2
 - Pour qui : toute l'équipe

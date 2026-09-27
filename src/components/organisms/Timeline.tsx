@@ -3,7 +3,7 @@
 import { useState, type ReactNode, type RefObject } from "react";
 import { GripVertical, Plus, TriangleAlert } from "lucide-react";
 import {
-  allocationOn, itemOverload, pctLabel, lateBy, isLate, overdue, slip, todayIso, totalJh, unplannedReason, fmtDay,
+  allocationOn, itemOverload, pctLabel, workJh, lateBy, isLate, overdue, slip, todayIso, totalJh, unplannedReason, fmtDay,
   type Item, type Person, type Plan, type Row,
 } from "@/lib/plan";
 import type { Axis } from "@/lib/axis";
@@ -13,7 +13,8 @@ import { Chevron, StatusIcon } from "../atoms";
 import { STATUS, personColor } from "../tokens";
 
 // start / done : date de démarrage ou de fin, demandée après le choix du statut.
-export type PickKind = "status" | "owners" | "estimate" | "milestone" | "start" | "done";
+// extra : avenant (retard anticipé en JH).
+export type PickKind = "status" | "owners" | "estimate" | "extra" | "milestone" | "start" | "done";
 export const LEFT = 380;
 
 type Props = {
@@ -132,7 +133,7 @@ export default function Timeline({ scrollRef, ...p }: Props) {
             <span title="Allocation du jour" className="shrink-0 text-[11px] tabular-nums text-stone-400">{pctLabel(allocationOn(item, todayIso()))}</span>
           )}
           {!hasChildren && overdue(item, span) && (
-            <span title={`${span!.planned! < todayIso() ? "En retard" : "Glissement prévu"} de ${slip(span)} j ouvrés (fin prévue le ${fmtDay(span!.planned!)})`}
+            <span title={`${span!.planned! < todayIso() ? "En retard" : "Glissement prévu"} de ${slip(span)} j ouvrés (fin prévue le ${fmtDay(span!.planned!)})${Number(item.extra_jh) ? `, dont avenant de +${Number(item.extra_jh).toLocaleString("fr-FR")} JH${item.extra_note ? ` : ${item.extra_note}` : ""}` : ""}`}
               className="shrink-0 animate-fade-in rounded-[4px] bg-amber-100 px-1 text-[11px] font-medium tabular-nums leading-4 text-amber-800">
               +{slip(span)} j
             </span>
@@ -153,8 +154,10 @@ export default function Timeline({ scrollRef, ...p }: Props) {
             <span className="w-11 shrink-0 text-right text-xs tabular-nums text-stone-400">Σ {totalJh(items, item.id)} j</span>
           ) : (
             <button data-cell="estimate" aria-label="Estimation" onClick={(e) => { e.stopPropagation(); p.onPick("estimate", item.id, e.currentTarget); }}
-              className={cx(cellBtn, "w-11 justify-end text-xs tabular-nums", Number(item.estimate_jh) ? "text-stone-500" : "text-stone-300")}>
-              {Number(item.estimate_jh) ? `${Number(item.estimate_jh).toLocaleString("fr-FR")} j` : "– j"}
+              title={Number(item.extra_jh) ? `Estimation ${Number(item.estimate_jh).toLocaleString("fr-FR")} j + avenant ${Number(item.extra_jh).toLocaleString("fr-FR")} j = ${workJh(item).toLocaleString("fr-FR")} j` : undefined}
+              className={cx(cellBtn, "min-w-11 justify-end whitespace-nowrap text-xs tabular-nums", Number(item.estimate_jh) ? "text-stone-500" : "text-stone-300")}>
+              {Number(item.estimate_jh) ? Number(item.estimate_jh).toLocaleString("fr-FR") : "–"}
+              {Number(item.extra_jh) > 0 && <span className="text-amber-700">+{Number(item.extra_jh).toLocaleString("fr-FR")}</span>}&nbsp;j
             </button>
           )}
           {hasChildren ? (

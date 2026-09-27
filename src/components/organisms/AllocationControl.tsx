@@ -33,9 +33,10 @@ export const withAllocation = (item: Item, person: string, pct: number, from: st
  */
 export default function AllocationControl({ item, owners, dated, store }: { item: Item; owners: Person[]; dated: boolean; store: Store }) {
   const today = todayIso();
-  const [picked, setPicked] = useState(today);
-  const from = dated ? picked : today;
   const list = normalize(item.allocations ?? []);
+  // À la réouverture : le dernier changement à venir s'il y en a un, sinon aujourd'hui.
+  const [picked, setPicked] = useState(() => [today, ...list.map((a) => a.from)].sort().at(-1)!);
+  const from = dated ? picked : today;
   const set = (person: string, pct: number) => store.updateItems([item.id], { allocations: withAllocation(item, person, pct, from, dated) });
   const nameOf = (id?: string) => (id ? owners.find((o) => o.id === id)?.name ?? "Ancien owner" : "Tous les owners");
   return (

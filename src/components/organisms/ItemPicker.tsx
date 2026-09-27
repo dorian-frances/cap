@@ -5,11 +5,11 @@ import { useRef, useState } from "react";
 import { Menu } from "@base-ui/react/menu";
 import { Popover } from "@base-ui/react/popover";
 import { Plus } from "lucide-react";
-import { isWeekend, planCapacity, startBefore, toDay, toIso, todayIso, fmtDay, type Item, type Plan, type Status } from "@/lib/plan";
+import { isWeekend, planCapacity, startBefore, workJh, toDay, toIso, todayIso, fmtDay, type Item, type Plan, type Status } from "@/lib/plan";
 import type { Data, Store } from "@/lib/store";
 import { cx } from "@/lib/cx";
 import type { PickKind } from "./Timeline";
-import { Avatar, Diamond, Kbd, StatusIcon } from "../atoms";
+import { Avatar, Button, Diamond, Kbd, StatusIcon } from "../atoms";
 import { Calendar, MenuCheckboxItem, MenuContent, MenuEmpty, MenuHeader, MenuItem, MenuRadioItem, MenuSeparator, PopoverContent } from "../molecules";
 import { STATUS } from "../tokens";
 
@@ -28,6 +28,7 @@ export function ItemPicker({ state, data, plan, store, onClose: close, onStep, o
   const common = <K extends keyof Item>(k: K) => (items.every((i) => i[k] === items[0]?.[k]) ? items[0]?.[k] : undefined);
 
   if (state.kind === "estimate") return <EstimatePopover state={state} items={items} store={store} onClose={onClose} />;
+  if (state.kind === "extra") return <AvenantPopover state={state} items={items} store={store} onClose={onClose} />;
   if (state.kind === "start" || state.kind === "done") return <DateStep kind={state.kind} state={state} items={items} data={data} plan={plan} store={store} onClose={onClose} />;
 
   // Le focus ne revient pas à l'ancre : sinon il serait repris au sélecteur suivant (raccourcis enchaînés, étape de date).
@@ -122,7 +123,7 @@ function DateStep({ kind, state, items, data, plan, store, onClose }: {
         const computed = plan.spans.get(it.id)?.start;
         const owners = data.people.filter((p) => it.owner_ids.includes(p.id));
         const began = it.started_on
-          ?? (it.status === "doing" && computed && computed <= iso ? computed : startBefore(iso, Number(it.estimate_jh), owners, data.absences));
+          ?? (it.status === "doing" && computed && computed <= iso ? computed : startBefore(iso, workJh(it), owners, data.absences));
         store.updateItems([it.id], { status: "done", done_on: iso, started_on: began > iso ? iso : began });
       } else if (it.status === "done") {
         store.updateItems([it.id], { started_on: it.done_on && iso > it.done_on ? it.done_on : iso });
@@ -149,6 +150,49 @@ function DateStep({ kind, state, items, data, plan, store, onClose }: {
           <button type="button" className={chip} onClick={() => apply(today)}>Aujourd&apos;hui</button>
           <button type="button" className={chip} onClick={() => apply(prevWorkday(today))}>Veille ouvrée</button>
         </div>
+      </PopoverContent>
+    </Popover.Root>
+  );
+}
+
+/** Avenant : retard anticipé en JH, avec son motif. La fin prévue reste celle de l'estimation. */
+function AvenantPopover({ state, items, store, onClose }: { state: NonNullable<PickerState>; items: Item[]; store: Store; onClose: () => void }) {
+  const one = items.length === 1 ? items[0] : null;
+  const [value, setValue] = useState(one && Number(one.extra_jh) ? String(Number(one.extra_jh)).replace(".", ",") : "");
+  const [note, setNote] = useState(one?.extra_note ?? "");
+  const save = (v: string) => {
+    const n = Number(v.replace(",", ".") || 0);
+    if (Number.isFinite(n) && n >= 0) store.updateItems(state.ids, { extra_jh: n, extra_note: n ? note.trim() : "" });
+    onClose();
+  };
+  return (
+    <Popover.Root open onOpenChange={(o) => !o && onClose()}>
+      <PopoverContent anchor={state.anchor} align="end" finalFocus={false} className="w-[300px] p-3">
+        <form className="flex flex-col gap-2.5" onSubmit={(e) => { e.preventDefault(); save(value); }}>
+          <label htmlFor="extra" className="text-xs text-stone-500">Avenant : retard anticipé</label>
+          <div className="flex h-9 items-center gap-2 rounded-[7px] border border-accent-500 px-2.5 ring-[3px] ring-accent-100">
+            <span className="text-[15px] font-medium text-amber-700">+</span>
+            <input id="extra" autoFocus inputMode="decimal" value={value} placeholder="0" onChange={(e) => setValue(e.target.value)}
+              onFocus={(e) => e.currentTarget.select()}
+              className="w-16 bg-transparent text-[15px] font-medium tabular-nums outline-none" />
+            <span className="flex-1 text-right text-stone-400">jours-homme</span>
+          </div>
+          <div className="flex flex-wrap gap-1">
+            {["0,5", "1", "2", "3", "5"].map((v) => (
+              <button type="button" key={v} onClick={() => setValue(v)}
+                className={cx("h-[26px] min-w-[34px] rounded-md border px-2 text-xs tabular-nums transition-colors duration-100", v === value ? "border-accent-500 bg-accent-50 text-accent-800" : "border-stone-200 hover:bg-stone-50")}>
+                +{v}
+              </button>
+            ))}
+          </div>
+          <input aria-label="Motif de l'avenant" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Motif (ex. dépendance API en retard)"
+            className="h-8 rounded-[7px] border border-stone-200 px-2.5 text-[13px] outline-none transition-shadow focus:border-accent-500 focus:ring-[3px] focus:ring-accent-100" />
+          <p className="text-xs text-stone-400">S&apos;ajoute à l&apos;estimation : la tâche occupe ses owners plus longtemps et la suite glisse. La fin prévue ne change pas, le retard se voit en hachures.</p>
+          <div className="flex justify-end gap-1.5">
+            {one && Number(one.extra_jh) > 0 && <Button type="button" size="sm" variant="ghost" onClick={() => save("0")}>Retirer</Button>}
+            <Button type="submit" size="sm" variant="primary">Appliquer</Button>
+          </div>
+        </form>
       </PopoverContent>
     </Popover.Root>
   );

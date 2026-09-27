@@ -2,7 +2,7 @@
 
 import { ArrowRight, CalendarCheck, CalendarDays, ChevronRight, CircleSlash, Clock, Divide, Link2, Play, Trash2, TriangleAlert, X } from "lucide-react";
 import {
-  absentSet, allocationOn, itemOverload, isWeekend, pctLabel, toIso, lateBy, overdue, slip, toDay, todayIso, totalJh, unplannedReason, workingDays, fmtDay,
+  absentSet, allocationOn, itemOverload, isWeekend, pctLabel, toIso, lateBy, overdue, slip, toDay, todayIso, totalJh, unplannedReason, workJh, workingDays, fmtDay,
   type Item, type Plan,
 } from "@/lib/plan";
 import type { Data, Store } from "@/lib/store";
@@ -89,7 +89,10 @@ export default function ItemPanel({ item, data, plan, store, closing, onClose, o
         const cut = Number(o.defect_share) > 0 && eff < Number(o.capacity) * allocationOn(item, span.start, o.id);
         return `${o.name}${eff < 1 ? ` à ${pctLabel(eff)}` : ""}${cut ? ` (${pctLabel(Number(o.defect_share))} sur les défauts)` : ""}`;
       }).join(" + ");
-      why.push({ icon: <Divide size={14} />, text: `${Number(item.estimate_jh)} j ÷ ${who} = ${Math.ceil(Number(item.estimate_jh) / cap)} jours de travail · fin prévue le ${fmtDay(span.planned ?? span.end)}` });
+      const extra = Number(item.extra_jh ?? 0);
+      why.push({ icon: <Divide size={14} />, text: extra
+        ? `(${Number(item.estimate_jh)} j + ${extra} j d'avenant) ÷ ${who} = ${Math.ceil(workJh(item) / cap)} jours de travail · fin prévue le ${fmtDay(span.planned ?? span.end)} sans l'avenant`
+        : `${Number(item.estimate_jh)} j ÷ ${who} = ${Math.ceil(Number(item.estimate_jh) / cap)} jours de travail · fin prévue le ${fmtDay(span.planned ?? span.end)}` });
       if (item.status === "done" && item.done_on) {
         const n = slip(span);
         why.push(n
@@ -154,6 +157,13 @@ export default function ItemPanel({ item, data, plan, store, closing, onClose, o
                 {Number(item.estimate_jh) ? `${Number(item.estimate_jh).toLocaleString("fr-FR")} j` : <span className="text-stone-500">Estimer</span>}
               </Chip>
             )}
+            {!isParent && item.status !== "done" && (
+              <Chip className="tabular-nums" onClick={(e) => onPick("extra", e.currentTarget)}>
+                {Number(item.extra_jh) > 0
+                  ? <span className="text-amber-700">+{Number(item.extra_jh).toLocaleString("fr-FR")} j d&apos;avenant</span>
+                  : <span className="text-stone-500">Avenant</span>}
+              </Chip>
+            )}
             {!isParent && (
               <Chip className="pl-1" onClick={(e) => onPick("owners", e.currentTarget)}>
                 {owners.length ? owners.map((o) => <Avatar key={o.id} person={o} size={18} />) : <span className="pl-1 text-stone-500">Assigner</span>}
@@ -172,12 +182,15 @@ export default function ItemPanel({ item, data, plan, store, closing, onClose, o
               {span!.planned! < today ? "En retard" : "Glissement prévu"} de {slip(span)} j ouvré{slip(span) > 1 ? "s" : ""} sur la fin prévue ({fmtDay(span!.planned!)})</div>
             <ul className="flex flex-col gap-1 text-[12.5px] text-amber-900/80">
               {surcharge.length > 0 && <li>Surcharge de {surcharge.map((x) => x.o.name).join(", ")} (détail ci-dessous).</li>}
-              {reduced && <li>Allocation réduite à {pctLabel(reduced.pct)} à partir du {fmtDay(reduced.from)}.</li>}
+              {Number(item.extra_jh) > 0 && <li>Avenant de +{Number(item.extra_jh).toLocaleString("fr-FR")} JH{item.extra_note ? ` : ${item.extra_note}` : ""}.</li>}
+              {reduced && <li>Allocation réduite à {pctLabel(reduced.pct)} à partir du {fmtDay(reduced.from, true)}</li>}
               {span!.planned! < today && <li>Pas terminée à temps : elle garde son allocation jusqu&apos;à ce qu&apos;elle soit terminée, la suite de ses owners glisse.</li>}
             </ul>
-            <div className="flex gap-1.5">
-              <Button size="sm" onClick={(e) => onPick("done", e.currentTarget)}>Terminer…</Button>
-            </div>
+            {item.status === "doing" && (
+              <div className="flex gap-1.5">
+                <Button size="sm" onClick={(e) => onPick("done", e.currentTarget)}>Terminer…</Button>
+              </div>
+            )}
           </div>
         )}
 
@@ -202,13 +215,13 @@ export default function ItemPanel({ item, data, plan, store, closing, onClose, o
           </div>
         ))}
 
-        {!isParent && item.status !== "done" && owners.length > 0 && <AllocationControl item={item} owners={owners} dated={item.status === "doing"} store={store} />}
+        {!isParent && item.status !== "done" && owners.length > 0 && <AllocationControl key={item.id} item={item} owners={owners} dated={item.status === "doing"} store={store} />}
 
         {late > 0 && target && (
           <div className="flex animate-rise-in flex-col gap-2 rounded-lg border border-red-100 bg-red-50/60 px-3.5 py-3 text-[13px]">
             <div className="flex items-center gap-2 font-semibold text-red-800"><TriangleAlert size={14} className="text-red-600" />
               {late} jour{late > 1 ? "s" : ""} ouvré{late > 1 ? "s" : ""} après {target.title}</div>
-            <div className="text-[12.5px] text-red-800/80">Fin calculée le {fmtDay(span!.end)}, le jalon est le {fmtDay(target.milestone_date!)}.</div>
+            <div className="text-[12.5px] text-red-800/80">Fin calculée le {fmtDay(span!.end)}, le jalon est le {fmtDay(target.milestone_date!, true)}</div>
             {!isParent && (
               <div className="flex gap-1.5">
                 <Button size="sm" onClick={(e) => onPick("owners", e.currentTarget)}>Ajouter un owner</Button>

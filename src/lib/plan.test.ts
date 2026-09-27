@@ -258,3 +258,15 @@ test("surcharge passée puis corrigée : plus d'alerte sur la tâche", () => {
   assert.equal(itemOverload(plan, x, "2026-09-28").size, 0);
   assert.equal(overloaded(plan, "2026-09-28").size, 0);
 });
+
+test("avenant : la tâche occupe estimation + avenant, la suivante démarre après, glissement visible", () => {
+  const x = item({ estimate_jh: 5, extra_jh: 2, owner_ids: ["a"] });
+  const y = item({ estimate_jh: 1, owner_ids: ["a"] });
+  const plan = schedule([x, y], [A], [], MON, MON);
+  assert.deepEqual(plan.spans.get(x.id), { start: MON, end: "2026-10-06", planned: "2026-10-02" });
+  assert.equal(slip(plan.spans.get(x.id)), 2);
+  assert.deepEqual(plan.spans.get(y.id), { start: "2026-10-07", end: "2026-10-07" });
+  // En cours : l'engagement reste l'estimation, l'avenant allonge la fin calculée
+  const z = item({ estimate_jh: 5, extra_jh: 2, owner_ids: ["a"], status: "doing", started_on: MON });
+  assert.deepEqual(schedule([z], [A], [], MON, MON).spans.get(z.id), { start: MON, end: "2026-10-06", planned: "2026-10-02" });
+});
