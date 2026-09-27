@@ -4,7 +4,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Absence, Item, Person, Project } from "./plan";
 import { supabase } from "./supabase";
-import { toasts } from "@/components/ui";
+import { toasts } from "@/components/molecules/Toast";
 
 export type Data = {
   project: Project & { share_token: string };

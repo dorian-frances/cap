@@ -2,7 +2,9 @@
 
 import { useState } from "react";
 import { Dialog } from "@base-ui/react/dialog";
-import { Kbd } from "./ui";
+import { cx } from "@/lib/cx";
+import { Kbd } from "../atoms";
+import { backdropCls, dialogMotion } from "../molecules";
 
 export type Command = { id: string; group: string; label: string; keys?: string[]; keywords?: string; icon?: React.ReactNode; run: () => void };
 
@@ -20,9 +22,9 @@ export default function CommandPalette({ open, onOpenChange, commands, context }
   return (
     <Dialog.Root open={open} onOpenChange={(o) => { onOpenChange(o); if (!o) setQ(""); }}>
       <Dialog.Portal>
-        <Dialog.Backdrop className="fixed inset-0 z-40 bg-stone-900/10" />
+        <Dialog.Backdrop className={cx(backdropCls, "bg-stone-900/10")} />
         <Dialog.Popup aria-label="Palette de commandes"
-          className="fixed left-1/2 top-[14vh] z-50 flex max-h-[70vh] w-[min(580px,calc(100vw-32px))] -translate-x-1/2 flex-col overflow-hidden rounded-xl border border-stone-200 bg-white shadow-[0_24px_64px_-12px_rgba(28,25,23,.28)] outline-none">
+          className={cx("fixed left-1/2 top-[14vh] z-50 flex max-h-[70vh] w-[min(580px,calc(100vw-32px))] -translate-x-1/2 flex-col overflow-hidden rounded-xl border border-stone-200 bg-white shadow-dialog outline-none", dialogMotion)}>
           <div className="flex h-[50px] shrink-0 items-center gap-2.5 border-b border-stone-100 px-4">
             {context && <span className="max-w-[160px] truncate rounded-[5px] bg-stone-100 px-2 py-0.5 text-xs text-stone-600">{context}</span>}
             <input autoFocus value={q} placeholder="Tapez une commande ou cherchez un item…" aria-label="Commande"
@@ -42,7 +44,7 @@ export default function CommandPalette({ open, onOpenChange, commands, context }
                   {head && <div className="px-4 pb-1 pt-2.5 text-[11px] text-stone-400">{head}</div>}
                   <div role="option" aria-selected={i === active} onMouseMove={() => setActive(i)} onClick={() => run(c)}
                     ref={(el) => { if (i === active) el?.scrollIntoView({ block: "nearest" }); }}
-                    className={`mx-1.5 flex h-[34px] cursor-default items-center gap-2.5 rounded-[7px] px-3 text-[13px] ${i === active ? "bg-stone-100" : ""}`}>
+                    className={cx("mx-1.5 flex h-[34px] cursor-default items-center gap-2.5 rounded-[7px] px-3 text-[13px]", i === active && "bg-stone-100")}>
                     {c.icon && <span className="text-stone-500">{c.icon}</span>}
                     <span className="min-w-0 flex-1 truncate">{c.label}</span>
                     {c.keys?.map((k) => <Kbd key={k}>{k}</Kbd>)}

@@ -1,8 +1,43 @@
 @import "tailwindcss";
 
+/* Design tokens. Neutres = échelle stone (gris chauds) de Tailwind ; accent unique = indigo doux. */
 @theme inline {
   --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+}
+
+@theme {
+  --color-accent-50: #f3f3fc;
+  --color-accent-100: #e6e6fa;
+  --color-accent-200: #d0d0f5;
+  --color-accent-300: #b3b3ee;
+  --color-accent-400: #8e8ee4;
+  --color-accent-500: #7070dc;
+  --color-accent-600: #5b5bd6;
+  --color-accent-700: #4a4abf;
+  --color-accent-800: #3b3b9c;
+  --color-canvas: #fafaf9;
+  --color-sidebar: #f4f3f1;
+
+  --shadow-popup: 0 12px 32px -8px rgb(28 25 23 / 0.18), 0 2px 6px rgb(28 25 23 / 0.06);
+  --shadow-dialog: 0 24px 64px -12px rgb(28 25 23 / 0.28);
+  --shadow-panel: -16px 0 40px -16px rgb(28 25 23 / 0.22);
+  --shadow-card: 0 16px 40px -12px rgb(28 25 23 / 0.18);
+  --shadow-control: 0 1px 2px rgb(28 25 23 / 0.06);
+
+  /* Courbes « Linear » : départ rapide, arrivée douce. */
+  --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out-quart: cubic-bezier(0.76, 0, 0.24, 1);
+
+  --animate-fade-in: fade-in 180ms var(--ease-out-quint) both;
+  --animate-rise-in: rise-in 240ms var(--ease-out-quint) both;
+
+  @keyframes fade-in {
+    from { opacity: 0; }
+  }
+  @keyframes rise-in {
+    from { opacity: 0; transform: translateY(6px); }
+  }
 }
 
 html {
@@ -17,7 +52,18 @@ body {
 
 @layer base {
   :focus-visible {
-    outline: 2px solid #5b5bd6;
+    outline: 2px solid var(--color-accent-600);
     outline-offset: 1px;
+  }
+  button:not(:disabled), [role="button"]:not([aria-disabled="true"]) {
+    cursor: default;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

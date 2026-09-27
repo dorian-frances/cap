@@ -10,16 +10,25 @@ Stack : Next.js (tout en client components) + Supabase (Postgres, Auth, RLS). D�
 | Fichier | Rôle |
 |---|---|
 | `src/lib/plan.ts` | Domaine : types + calcul du planning (fonctions pures, testées) |
+| `src/lib/axis.ts`, `calendar.ts` | Échelle de temps, grille du sélecteur de dates (testée) |
 | `src/lib/store.ts` | État d'un projet : chargement, écritures optimistes, annulation |
-| `src/components/Timeline.tsx` | Timeline (échelle, lignes, barres), partagée avec la vue client |
-| `src/components/ItemPanel.tsx` | Panneau de détail d'un Item, dont « Pourquoi ces dates » |
-| `src/components/pickers.tsx` | Menus statut / owners / estimation / jalon |
-| `src/components/views.tsx` | Vues Équipe, Jalons, Absences, Paramètres + dialogues |
-| `src/app/p/[id]/page.tsx` | Page projet : assemblage, clavier, sélection, clic droit, ⌘K |
+| `src/app/p/[id]/page.tsx` | Page projet : assemblage, clavier, sélection, ⌘K |
 | `src/app/share/[token]/page.tsx` | Vue client en lecture seule (sans compte) |
 | `supabase/migrations/` | Schéma, RLS, `create_project`, `get_shared_project` |
 
-UI : Tailwind v4, `@base-ui/react` (menus, popovers, dialogues, toasts), `lucide-react` (icônes).
+### Design system (`src/components/`, atomic design)
+
+| Niveau | Contenu | Règle |
+|---|---|---|
+| `tokens.ts` + `globals.css` (`@theme`) | Couleurs (neutres stone, accent unique), statuts, ombres, courbes et animations | Aucune couleur ou ombre en dur ailleurs |
+| `atoms/` | Button, Input, Kbd, Avatar, StatusIcon, Diamond, Chip, Switch, Chevron, Logo, Swatch | Aucune logique métier, aucun import d'un niveau supérieur |
+| `molecules/` | Menu, Popover, Dialog/ConfirmDialog, Tooltip, IconButton, Select, SegmentedControl, Calendar, DatePicker/DateRangePicker, SidePanel, GanttBar, TimeAxis, Toast, Field… | Composent des atomes, génériques (reçoivent des données, pas le store) |
+| `organisms/` | Timeline, ItemPanel, PersonPanel, TeamView, vues Jalons/Absences/Paramètres, ItemPicker, CommandPalette, Sidebar, barres d'outils | Connaissent le domaine et le store |
+| `templates/` | AppShell, ContentPage | Mise en page, sans données |
+
+Mouvement : popups et dialogues en fondu + échelle depuis leur ancre, panneaux latéraux qui glissent (entrée et sortie via `usePresence`), barres qui glissent vers leurs nouvelles dates quand le plan est recalculé. Tout est coupé si le système demande moins d'animations (`prefers-reduced-motion`).
+
+UI : Tailwind v4, `@base-ui/react` (primitives accessibles), `lucide-react` (icônes).
 
 ## Raccourcis
 
@@ -55,7 +64,7 @@ Compte de test local : `pm@cap.test` / `password123`.
 Tests :
 
 ```bash
-npm test          # calcul du planning
+npm test          # calcul du planning, calendrier
 npm run test:db   # droits d'accès (RLS), nécessite supabase start
 ```
 

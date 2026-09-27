@@ -34,6 +34,10 @@ export const toIso = (day: number) => new Date(day * DAY).toISOString().slice(0,
 export const isWeekend = (day: number) => [0, 6].includes(new Date(day * DAY).getUTCDay());
 export const monday = (day: number) => day - ((new Date(day * DAY).getUTCDay() + 6) % 7);
 export const todayIso = () => new Date().toISOString().slice(0, 10);
+export const fmtDay = (iso: string, withYear = false) =>
+  new Date(iso + "T00:00:00Z").toLocaleDateString("fr-FR", {
+    day: "numeric", month: "short", timeZone: "UTC", ...(withYear ? { year: "numeric" } : {}),
+  });
 
 export function absentSet(absences: Absence[]) {
   const s = new Set<string>();
