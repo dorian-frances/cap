@@ -149,14 +149,14 @@ export function schedule(items: Item[], people: Person[], absences: Absence[], s
     occupant.set(`${p}:${d}`, id);
   };
   // Surcharge : allocations déclarées + part défauts au-delà de 100 % du temps de la personne.
-  // Les tâches en cours se cumulent ; une tâche enchaînée prend le reste du temps, elle ne compte qu'avec la part défauts.
-  const load = new Map<string, { demand: number; ids: string[] }>();
-  const flag = (p: string, d: number, pct: number, id: string, cumulate: boolean) => {
-    const k = `${p}:${d}`, base = (cumulate && load.get(k)) || { demand: defect.get(p)!, ids: [] };
+  // Toutes les tâches actives un jour donné se cumulent, sauf une tâche qui finit en cours de journée (passage de relais).
+  const flag = (p: string, d: number, pct: number, id: string) => {
+    const k = `${p}:${d}`, base = load.get(k) ?? { demand: defect.get(p)!, ids: [] };
     const next = { demand: base.demand + pct, ids: [...base.ids, id] };
-    if (cumulate) load.set(k, next);
-    if (next.demand > Math.max(1 + 1e-9, overload.get(k)?.demand ?? 0)) overload.set(k, next);
+    load.set(k, next);
+    if (next.demand > 1 + 1e-9) overload.set(k, next);
   };
+  const load = new Map<string, { demand: number; ids: string[] }>();
 
   const rows = orderItems(items);
   const spans = new Map<string, Span | null>();
@@ -228,7 +228,11 @@ export function schedule(items: Item[], people: Person[], absences: Absence[], s
       for (const [p, list] of byPerson) {
         const avail = left(p, d);
         if (avail <= 1e-9) continue;
-        for (const { run, pct } of list) flag(p, d, pct, run.item.id, true);
+        for (const { run, pct } of list) {
+          // Finit dans la journée : ne compte pas face à la tâche qui prend le relais.
+          const partial = run.end === null && run.rest < run.owners.reduce((sum, o) => sum + cap(o, d) * pctOn(run.item.id, o, d), 0) - 1e-9;
+          if (!partial) flag(p, d, pct, run.item.id);
+        }
         const want = cap(p, d) * list.reduce((sum, x) => sum + x.pct, 0);
         for (const { run, pct } of list) {
           const q = cap(p, d) * pct * Math.min(1, avail / want);
@@ -266,7 +270,7 @@ export function schedule(items: Item[], people: Person[], absences: Absence[], s
     let blocker = gate.find((o) => last.has(o) && free.get(o) === s);
 
     // Répartition des JH jour par jour (simulée, validée ensuite jusqu'à la fin réelle).
-    const alloc: [number, string, number][] = [];
+    const alloc: [number, string, number, boolean][] = []; // jour, owner, JH, journée pleine
     let remaining = jh;
     let first: number | null = jh > 0 ? null : s;
     let d = s;
@@ -275,7 +279,7 @@ export function schedule(items: Item[], people: Person[], absences: Absence[], s
       if (total <= 1e-9) continue;
       first ??= d;
       const ratio = Math.min(1, remaining / total);
-      for (const o of owners) alloc.push([d, o, rate(item.id, o, d) * ratio]);
+      for (const o of owners) alloc.push([d, o, rate(item.id, o, d) * ratio, ratio > 1 - 1e-9]);
       remaining -= total * ratio;
       if (remaining <= 1e-9) break;
     }
@@ -284,7 +288,8 @@ export function schedule(items: Item[], people: Person[], absences: Absence[], s
     const planned = d;
     // Terminée : à sa date de fin réelle (sans date, pas après aujourd'hui). Sinon : au moins jusqu'à aujourd'hui.
     const end = done ? (item.done_on ? toDay(item.done_on) : Math.min(planned, Math.max(now, s))) : Math.max(planned, now);
-    for (const [day, o, q] of alloc) if (day <= end && q > 1e-12) { take(o, day, q, item.id); flag(o, day, pctOn(item.id, o, day), item.id, false); }
+    // Surcharge : ce qui est déclaré compte, même si l'owner n'a plus de temps à donner ce jour-là.
+    for (const [day, o, q, full] of alloc) if (day <= end) { take(o, day, q, item.id); if (full && cap(o, day) > 0) flag(o, day, pctOn(item.id, o, day), item.id); }
     for (let x = planned; x <= end && end > planned; x++) for (const o of owners) take(o, x, rate(item.id, o, x), item.id);
 
     // Attend une tâche en cours d'un de ses owners : celle qui l'occupait juste avant.

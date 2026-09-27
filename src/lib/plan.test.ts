@@ -168,7 +168,27 @@ test("allocation à 50 % : la tâche avance moitié moins vite, la suivante en p
   const plan = schedule([x, y], [A], [], MON, MON);
   assert.deepEqual(plan.spans.get(x.id), { start: MON, end: "2026-10-01" }); // engagée à 50 % : pas de glissement
   assert.deepEqual(plan.spans.get(y.id), { start: MON, end: "2026-09-29" });
-  assert.equal(plan.overload.size, 0);
+  // 50 % déclarés + 100 % sur la suivante : 150 %, signalé (la suivante devrait être déclarée à 50 %)
+  assert.equal(plan.overload.get(`a:${toDay(MON)}`)?.demand, 1.5);
+});
+
+test("surcharge : aide à 20 % + tâche à 100 % + 20 % de défauts = 140 %, pas de faux positif au relais", () => {
+  const h = { id: "h", name: "Hugues", capacity: 1, defect_share: 0.2 };
+  const j = { id: "j", name: "Julien", capacity: 1 };
+  const spi = item({ estimate_jh: 12, owner_ids: ["h", "j"], allocations: [{ from: MON, pct: 0.2, person: "h" }] });
+  const gpay = item({ estimate_jh: 10, owner_ids: ["h"] });
+  const plan = schedule([spi, gpay], [h, j], [], MON, MON);
+  assert.deepEqual(plan.overload.get(`h:${toDay(MON)}`), { demand: 1.4, ids: [spi.id, gpay.id] });
+  // Deux tâches de A à la suite, la première finit en milieu de journée : pas de surcharge
+  const x = item({ estimate_jh: 1.5, owner_ids: ["a"] });
+  const y = item({ estimate_jh: 2, owner_ids: ["a"] });
+  assert.equal(schedule([x, y], [A], [], MON, MON).overload.size, 0);
+  const s = item({ estimate_jh: 1.5, owner_ids: ["a"], status: "doing", started_on: MON });
+  assert.equal(schedule([s, y], [A], [], MON, MON).overload.size, 0);
+  // Aide déclarée à 20 % alors que A est à 100 % sur une tâche en cours : 120 %, même si l'aide n'avance pas
+  const busy = item({ estimate_jh: 5, owner_ids: ["a"], status: "doing", started_on: MON });
+  const help = item({ estimate_jh: 5, owner_ids: ["b", "a"], allocations: [{ from: MON, pct: 0.2, person: "a" }] });
+  assert.equal(schedule([busy, help], [A, B], [], MON, MON).overload.get(`a:${toDay(MON)}`)?.demand, 1.2);
 });
 
 test("allocation réduite en cours de route : glissement par rapport à la fin prévue", () => {
@@ -187,7 +207,8 @@ test("surcharge : deux tâches à 100 % en parallèle ralentissent au prorata", 
   assert.deepEqual(plan.spans.get(x.id), { start: MON, end: "2026-10-01", planned: "2026-09-29" });
   assert.equal(slip(plan.spans.get(y.id)), 2);
   assert.deepEqual(plan.overload.get(`a:${toDay(MON)}`), { demand: 2, ids: [x.id, y.id] });
-  assert.deepEqual(overloaded(plan, MON).get("a"), { from: toDay(MON), to: toDay("2026-10-01"), peak: 2 });
+  // Le 1er oct., il reste 0,5 JH à chacune : elles tiennent dans la journée
+  assert.deepEqual(overloaded(plan, MON).get("a"), { from: toDay(MON), to: toDay("2026-09-30"), peak: 2 });
   assert.equal(weekOverload(plan, "a", toDay(MON))?.demand, 2);
   assert.equal(plan.freeFrom.get("a"), toDay("2026-10-02"));
 });
