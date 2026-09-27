@@ -29,7 +29,7 @@ export type Item = {
 /** JH à réaliser : estimation + avenant. */
 export const workJh = (i: Item) => Number(i.estimate_jh) + Number(i.extra_jh ?? 0);
 /**
- * « À partir de `from`, `person` consacre `pct` de son temps à la tâche » (0 = en attente).
+ * « À partir de `from`, `person` consacre `pct` de son temps à la tâche » (0 = en pause).
  * Sans `person` : vaut pour tous les owners. L'entrée la plus récente qui s'applique l'emporte.
  */
 export type Allocation = { from: string; pct: number; person?: string };
@@ -105,7 +105,7 @@ export function orderItems(items: Item[]): Row[] {
   return rows;
 }
 
-export const pctLabel = (pct: number) => (pct === 0 ? "En attente" : `${Math.round(pct * 100)} %`);
+export const pctLabel = (pct: number) => (pct === 0 ? "En pause" : `${Math.round(pct * 100)} %`);
 
 /** Allocation d'une personne sur une tâche un jour donné (100 % par défaut). Sans personne : la plus haute des owners. */
 export function allocationOn(item: Item, iso: string, person?: string): number {
@@ -114,6 +114,21 @@ export function allocationOn(item: Item, iso: string, person?: string): number {
   for (const a of [...(item.allocations ?? [])].sort((x, y) => x.from.localeCompare(y.from)))
     if (a.from <= iso && (!a.person || a.person === person)) pct = Number(a.pct);
   return pct;
+}
+
+/** Périodes de la barre où la tâche est en pause : tous ses owners à 0 %. */
+export function pauses(item: Item, span: Span | null | undefined): Span[] {
+  if (!span || item.status === "todo") return [];
+  const days = [...new Set([span.start, ...(item.allocations ?? []).map((a) => a.from)])].filter((d) => d >= span.start && d <= span.end).sort();
+  const out: Span[] = [];
+  days.forEach((d, k) => {
+    if (allocationOn(item, d) > 0) return;
+    const end = days[k + 1] ? toIso(toDay(days[k + 1]) - 1) : span.end;
+    const prev = out.at(-1);
+    if (prev && toDay(prev.end) + 1 === toDay(d)) prev.end = end;
+    else out.push({ start: d, end });
+  });
+  return out;
 }
 
 /**
@@ -255,7 +270,8 @@ export function schedule(items: Item[], people: Person[], absences: Absence[], s
       const planned = commit(run.item, run.owners, run.from);
       const calc = run.end ?? Math.max(now, planned); // sans fin calculable (en attente), jusqu'à aujourd'hui au moins
       const end = run.done ? Math.min(calc, Math.max(now, run.from)) : Math.max(calc, now);
-      spans.set(run.item.id, span(Math.min(run.first ?? run.from, end), end, planned));
+      // La barre part de la date de début réelle, même si la tâche démarre en pause.
+      spans.set(run.item.id, span(Math.min(run.owners.every((o) => pctOn(run.item.id, o, run.from) === 0) ? run.from : run.first ?? run.from, end), end, planned));
     }
   }
 

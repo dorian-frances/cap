@@ -7,8 +7,8 @@ import type { Store } from "@/lib/store";
 import { Avatar } from "../atoms";
 import { DatePicker, IconButton, SectionTitle, SegmentedControl } from "../molecules";
 
-// 0 % = en attente (la tâche n'avance plus sans libérer la personne de son engagement).
-const OPTIONS = ["1", "0.8", "0.5", "0.2", "0"].map((v) => ({ value: v, label: `${Math.round(Number(v) * 100)} %` }));
+// 0 % = en pause (la tâche n'avance plus sans libérer la personne de son engagement).
+const OPTIONS = ["1", "0.8", "0.5", "0.2", "0"].map((v) => ({ value: v, label: v === "0" ? "Pause" : `${Math.round(Number(v) * 100)} %` }));
 
 /** Retire, personne par personne, les entrées qui ne changent rien (100 % au départ). */
 const normalize = (list: Allocation[]) => {
@@ -62,7 +62,7 @@ export default function AllocationControl({ item, owners, dated, store }: { item
         </div>
       ))}
       <p className="text-xs text-stone-400">
-        Part du temps total de chacun consacrée à la tâche (0 % = en attente). Une personne en aide ne retarde pas son démarrage et continue ses autres tâches avec le reste de son temps. Au-delà de 100 % cumulés avec ses autres tâches en cours et sa part défauts, elle est signalée en surcharge.
+        Part du temps total de chacun consacrée à la tâche (Pause = 0 %, la tâche n&apos;avance plus). Une personne en aide ne retarde pas son démarrage et continue ses autres tâches avec le reste de son temps. Au-delà de 100 % cumulés avec ses autres tâches en cours et sa part défauts, elle est signalée en surcharge.
       </p>
     </section>
   );

@@ -13,7 +13,7 @@ import { usePresence } from "@/lib/usePresence";
 import { Button, StatusIcon } from "@/components/atoms";
 import { ContextMenuContent, MenuItem, MenuSeparator, ToastProvider, Toaster, TooltipProvider, toasts } from "@/components/molecules";
 import { AppShell, AppSkeleton } from "@/components/templates";
-import Timeline, { LEFT, type PickKind } from "@/components/organisms/Timeline";
+import Timeline, { type PickKind } from "@/components/organisms/Timeline";
 import ItemPanel from "@/components/organisms/ItemPanel";
 import CommandPalette, { type Command } from "@/components/organisms/CommandPalette";
 import { ItemPicker, type PickerState } from "@/components/organisms/ItemPicker";
@@ -354,7 +354,7 @@ function ProjectPage() {
                   </>}
                   footer={features.length > 0 && (
                     <div className="flex h-8">
-                      <button onClick={() => newItem(null)} className="sticky left-0 flex items-center gap-1.5 border-r border-stone-100 bg-white pl-[62px] text-[13px] text-stone-400 transition-colors hover:text-stone-700" style={{ width: LEFT }}>
+                      <button onClick={() => newItem(null)} className="sticky left-0 flex items-center gap-1.5 border-r border-stone-100 bg-white pl-[62px] text-[13px] text-stone-400 transition-colors hover:text-stone-700" style={{ width: "var(--left)" }}>
                         <Plus size={14} />Nouvel item
                       </button>
                     </div>

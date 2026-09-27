@@ -15,6 +15,9 @@ export const HATCH = {
   // Retard sur l'estimation (ambre) : distinct du dépassement de jalon (rouge).
   overrun: "repeating-linear-gradient(135deg,rgba(217,119,6,.32) 0 2px,rgba(254,243,199,.95) 2px 5px)",
   overrunBorder: "#efc587",
+  // En pause : rayures verticales grises, comme un « || ».
+  pause: "repeating-linear-gradient(90deg,rgba(120,113,108,.35) 0 2px,rgba(250,250,249,.97) 2px 6px)",
+  pauseBorder: "#c9c4bf",
   absence: "repeating-linear-gradient(135deg,#d6d3d1 0 2px,#f4f3f1 2px 5px)",
   absenceOverlay: "repeating-linear-gradient(135deg,rgba(168,162,158,.5) 0 2px,transparent 2px 5px)",
 };

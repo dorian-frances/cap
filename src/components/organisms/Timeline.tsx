@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, type ReactNode, type RefObject } from "react";
-import { GripVertical, Plus, TriangleAlert } from "lucide-react";
+import { useEffect, useState, type CSSProperties, type ReactNode, type RefObject } from "react";
+import { GripVertical, Pause, Plus, TriangleAlert } from "lucide-react";
 import {
-  allocationOn, itemOverload, pctLabel, workJh, lateBy, isLate, overdue, slip, todayIso, totalJh, unplannedReason, fmtDay,
+  allocationOn, itemOverload, pauses, pctLabel, workJh, lateBy, isLate, overdue, slip, todayIso, totalJh, unplannedReason, fmtDay,
   type Item, type Person, type Plan, type Row,
 } from "@/lib/plan";
 import type { Axis } from "@/lib/axis";
@@ -15,7 +15,7 @@ import { STATUS, personColor } from "../tokens";
 // start / done : date de démarrage ou de fin, demandée après le choix du statut.
 // extra : avenant (retard anticipé en JH).
 export type PickKind = "status" | "owners" | "estimate" | "extra" | "milestone" | "start" | "done";
-export const LEFT = 380;
+export const LEFT = 380; // largeur par défaut de la colonne des titres, redimensionnable
 
 type Props = {
   items: Item[];
@@ -50,6 +50,18 @@ export default function Timeline({ scrollRef, ...p }: Props) {
   const [drop, setDrop] = useState<{ id: string; where: "before" | "after" } | null>(null);
   const [dragId, setDragId] = useState<string | null>(null);
   const milestones = items.filter((i) => i.type === "milestone");
+  // Colonne des titres : largeur réglable (glisser, flèches, double-clic = défaut), mémorisée sur ce navigateur.
+  const [left, setLeft] = useState(() => { try { return Number(localStorage.getItem("cap:left")) || LEFT; } catch { return LEFT; } });
+  const clampLeft = (w: number) => setLeft(Math.round(Math.min(760, Math.max(280, w))));
+  useEffect(() => { try { localStorage.setItem("cap:left", String(left)); } catch {} }, [left]);
+  const startResize = (e: React.PointerEvent) => {
+    e.preventDefault();
+    const x0 = e.clientX, w0 = left;
+    const move = (ev: PointerEvent) => clampLeft(w0 + ev.clientX - x0);
+    const up = () => { removeEventListener("pointermove", move); removeEventListener("pointerup", up); document.body.style.cursor = ""; };
+    addEventListener("pointermove", move); addEventListener("pointerup", up);
+    document.body.style.cursor = "col-resize";
+  };
 
   const bar = (item: Item, hasChildren: boolean, selected: boolean) => {
     const span = plan.spans.get(item.id)!;
@@ -62,7 +74,7 @@ export default function Timeline({ scrollRef, ...p }: Props) {
     const late = lateBy(item, span, items) > 0;
     return (
       <GanttBar ax={ax} span={span} label={item.title || "Sans titre"} tone={tone} top={6} height={20} selected={selected}
-        faded={item.status === "done"} title={title} lateFrom={late ? items.find((i) => i.id === item.target_id)?.milestone_date : null} />
+        faded={item.status === "done"} title={title} pauses={pauses(item, span)} lateFrom={late ? items.find((i) => i.id === item.target_id)?.milestone_date : null} />
     );
   };
 
@@ -92,7 +104,7 @@ export default function Timeline({ scrollRef, ...p }: Props) {
         }}
         onDragLeave={() => setDrop((d) => (d?.id === item.id ? null : d))}
         onDrop={(e) => { e.preventDefault(); if (dragId && drop) p.onDrop(dragId, drop.id, drop.where); setDrop(null); setDragId(null); }}>
-        <div className={cx("sticky left-0 z-10 flex shrink-0 items-center gap-1.5 border-r border-stone-100 pr-3 transition-colors duration-150", sel ? "bg-accent-50" : "bg-white group-hover:bg-stone-50")} style={{ width: LEFT }}>
+        <div className={cx("sticky left-0 z-10 flex shrink-0 items-center gap-1.5 border-r border-stone-100 pr-3 transition-colors duration-150", sel ? "bg-accent-50" : "bg-white group-hover:bg-stone-50")} style={{ width: "var(--left)" }}>
           <span draggable aria-label="Déplacer" title="Glisser pour réordonner"
             onDragStart={(e) => { setDragId(item.id); e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", item.id); }}
             onDragEnd={() => { setDragId(null); setDrop(null); }}
@@ -123,15 +135,20 @@ export default function Timeline({ scrollRef, ...p }: Props) {
               onBlur={(e) => p.onRename(item.id, e.currentTarget.value)}
               className="h-6 min-w-0 flex-1 rounded border border-accent-400 bg-white px-1.5 text-[13px] outline-none ring-2 ring-accent-100" />
           ) : (
-            <span data-cell="title" onDoubleClick={() => p.onStartRename(item.id)}
+            <span data-cell="title" title={`${inGroup ? pathOf(item) : ""}${item.title || "Sans titre"}`} onDoubleClick={() => p.onStartRename(item.id)}
               className={cx("min-w-0 truncate text-[13px]", hasChildren && "font-semibold", !item.title && "text-stone-400")}>
               {inGroup && <span className="text-stone-400">{pathOf(item)}</span>}{item.title || "Sans titre"}
             </span>
           )}
           {late && <TriangleAlert size={13} className="shrink-0 animate-fade-in text-red-600" aria-label="Après son jalon" />}
-          {!hasChildren && item.status === "doing" && allocationOn(item, todayIso()) < 1 && (
+          {!hasChildren && item.status === "doing" && (allocationOn(item, todayIso()) === 0 ? (
+            <span title="En pause : tous ses owners sont à 0 %, la tâche n'avance plus" aria-label="En pause"
+              className="flex size-4 shrink-0 animate-fade-in items-center justify-center rounded-[4px] bg-stone-100 text-stone-600">
+              <Pause size={9} fill="currentColor" strokeWidth={0} />
+            </span>
+          ) : allocationOn(item, todayIso()) < 1 && (
             <span title="Allocation du jour" className="shrink-0 text-[11px] tabular-nums text-stone-400">{pctLabel(allocationOn(item, todayIso()))}</span>
-          )}
+          ))}
           {!hasChildren && overdue(item, span) && (
             <span title={`${span!.planned! < todayIso() ? "En retard" : "Glissement prévu"} de ${slip(span)} j ouvrés (fin prévue le ${fmtDay(span!.planned!)})${Number(item.extra_jh) ? `, dont avenant de +${Number(item.extra_jh).toLocaleString("fr-FR")} JH${item.extra_note ? ` : ${item.extra_note}` : ""}` : ""}`}
               className="shrink-0 animate-fade-in rounded-[4px] bg-amber-100 px-1 text-[11px] font-medium tabular-nums leading-4 text-amber-800">
@@ -189,10 +206,17 @@ export default function Timeline({ scrollRef, ...p }: Props) {
 
   return (
     <div ref={scrollRef} className="relative min-h-0 flex-1 overflow-auto" role="grid" aria-label="Timeline des items">
-      <div className="relative min-h-full" style={{ width: LEFT + ax.width }}>
+      <div className="relative min-h-full" style={{ width: left + ax.width, "--left": `${left}px` } as CSSProperties}>
         <div className="sticky top-0 z-20 flex border-b border-stone-200/80 bg-white">
-          <div className="sticky left-0 z-30 flex shrink-0 flex-col justify-center border-r border-stone-100 bg-white pl-5 pr-3" style={{ width: LEFT }}>
+          <div className="sticky left-0 z-30 flex shrink-0 flex-col justify-center border-r border-stone-100 bg-white pl-5 pr-3" style={{ width: "var(--left)" }}>
             {p.header}
+            <div role="separator" aria-orientation="vertical" aria-label="Largeur de la colonne des titres" aria-valuenow={left} aria-valuemin={280} aria-valuemax={760}
+              tabIndex={0} title="Glisser pour élargir · double-clic : largeur par défaut"
+              onPointerDown={startResize} onDoubleClick={() => setLeft(LEFT)}
+              onKeyDown={(e) => { if (e.key === "ArrowLeft" || e.key === "ArrowRight") { e.preventDefault(); e.stopPropagation(); clampLeft(left + (e.key === "ArrowRight" ? 40 : -40)); } }}
+              className="group absolute -right-1.5 top-0 z-40 flex h-full w-3 cursor-col-resize justify-center outline-none">
+              <span className="h-full w-0.5 rounded-full transition-colors duration-150 group-hover:bg-accent-400 group-focus-visible:bg-accent-500" />
+            </div>
           </div>
           <AxisHeader ax={ax} milestones={milestones} items={items} plan={plan} />
         </div>
@@ -202,7 +226,7 @@ export default function Timeline({ scrollRef, ...p }: Props) {
           <>
             <div className="flex h-9 border-t border-stone-100">
               <button onClick={p.onToggleGroup} aria-expanded={p.groupOpen}
-                className="sticky left-0 flex items-center gap-2 border-r border-stone-100 bg-white pl-[34px] pr-3 text-left transition-colors hover:bg-stone-50" style={{ width: LEFT }}>
+                className="sticky left-0 flex items-center gap-2 border-r border-stone-100 bg-white pl-[34px] pr-3 text-left transition-colors hover:bg-stone-50" style={{ width: "var(--left)" }}>
                 <span className="text-stone-500"><Chevron open={p.groupOpen} /></span>
                 <span className="text-[13px] font-medium">À planifier</span>
                 <span className="text-xs tabular-nums text-stone-400">{p.unplanned.length}</span>
@@ -212,7 +236,7 @@ export default function Timeline({ scrollRef, ...p }: Props) {
             {p.groupOpen && p.unplanned.map((r) => rowEl(r, true))}
           </>
         )}
-        <AxisLines ax={ax} milestones={milestones} left={LEFT} items={items} plan={plan} />
+        <AxisLines ax={ax} milestones={milestones} left={left} items={items} plan={plan} />
       </div>
     </div>
   );

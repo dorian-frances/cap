@@ -1,7 +1,7 @@
 // node --test src/lib/plan.test.ts
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { schedule as run, allocationOn, itemOverload, startBefore, overloaded, weekOverload, isLate, lateBy, overdue, slip, totalJh, unplannedReason, weekLoad, absentSet, toDay, type Item } from "./plan.ts";
+import { schedule as run, allocationOn, itemOverload, pauses, startBefore, overloaded, weekOverload, isLate, lateBy, overdue, slip, totalJh, unplannedReason, weekLoad, absentSet, toDay, type Item } from "./plan.ts";
 
 const MON = "2026-09-28"; // lundi
 const A = { id: "a", name: "A", capacity: 1 };
@@ -269,4 +269,14 @@ test("avenant : la tâche occupe estimation + avenant, la suivante démarre apr�
   // En cours : l'engagement reste l'estimation, l'avenant allonge la fin calculée
   const z = item({ estimate_jh: 5, extra_jh: 2, owner_ids: ["a"], status: "doing", started_on: MON });
   assert.deepEqual(schedule([z], [A], [], MON, MON).spans.get(z.id), { start: MON, end: "2026-10-06", planned: "2026-10-02" });
+});
+
+test("pause : périodes à 0 % pour tous les owners, découpées sur la barre", () => {
+  const x = item({ estimate_jh: 10, owner_ids: ["a"], status: "doing", started_on: "2026-09-01",
+    allocations: [{ from: "2026-09-10", pct: 0 }, { from: "2026-09-17", pct: 1 }, { from: "2026-09-24", pct: 0 }] });
+  const span = { start: "2026-09-01", end: "2026-09-28" };
+  assert.deepEqual(pauses(x, span), [{ start: "2026-09-10", end: "2026-09-16" }, { start: "2026-09-24", end: "2026-09-28" }]);
+  // Une personne encore à 20 % : pas en pause
+  const y = item({ ...x, owner_ids: ["a", "b"], allocations: [{ from: "2026-09-10", pct: 0, person: "a" }] });
+  assert.deepEqual(pauses(y, span), []);
 });

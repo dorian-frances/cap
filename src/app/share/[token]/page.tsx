@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import { Clock, Download, TriangleAlert } from "lucide-react";
 import {
-  isLate, orderItems, overdue, schedule, todayIso, fmtDay, type Absence, type Item, type Person, type Project, type Status,
+  isLate, orderItems, overdue, pauses, schedule, todayIso, fmtDay, type Absence, type Item, type Person, type Project, type Status,
 } from "@/lib/plan";
 import { axis } from "@/lib/axis";
 import { supabase } from "@/lib/supabase";
@@ -117,7 +117,7 @@ export default function SharePage() {
                     </div>
                     <div className="relative shrink-0" style={{ width: ax.width, ...weekendBg(ax.px) }}>
                       {span && <GanttBar ax={ax} span={span} label={item.title} tone={STATUS[st]} top={depth ? 10 : 12} height={depth ? 16 : 24}
-                        labelMode="inside" title={`${item.title} · ${fmtDay(span.start)} → ${fmtDay(span.end)}`} lateFrom={lateFrom(item, span.end)} />}
+                        labelMode="inside" pauses={hasChildren ? [] : pauses(item, span)} title={`${item.title} · ${fmtDay(span.start)} → ${fmtDay(span.end)}`} lateFrom={lateFrom(item, span.end)} />}
                     </div>
                   </div>
                 );
@@ -133,6 +133,7 @@ export default function SharePage() {
             ...(["done", "doing", "todo"] as Status[]).map((k) => ({ label: k === "todo" ? "À venir" : k === "doing" ? "En cours" : "Terminé", swatch: { background: STATUS[k].bar, boxShadow: `inset 0 0 0 1px ${STATUS[k].border}` } })),
             { label: "Retard sur l'estimation", swatch: { background: HATCH.overrun } },
             { label: "Après son jalon", swatch: { background: HATCH.late } },
+            { label: "En pause", swatch: { background: HATCH.pause } },
             { label: "Jalon", swatch: { borderLeft: "1px dashed var(--color-stone-500)" }, line: true },
             { label: "Aujourd'hui", swatch: { borderLeft: "1px solid var(--color-accent-500)" }, line: true },
           ]} />

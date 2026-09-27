@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Plus } from "lucide-react";
-import { absentSet, orderItems, overloaded, toIso, weekLoad, weekOverload, fmtDay } from "@/lib/plan";
+import { absentSet, orderItems, overloaded, pauses, toIso, weekLoad, weekOverload, fmtDay } from "@/lib/plan";
 import type { Axis } from "@/lib/axis";
 import type { Data, Store } from "@/lib/store";
 import { cx } from "@/lib/cx";
@@ -91,7 +91,7 @@ export default function TeamView({ data, plan, store, ax, scrollRef, toolbar, op
                         <span className="truncate text-stone-700">{item.title || "Sans titre"}</span>
                       </div>
                       <div className="relative shrink-0" style={{ width: ax.width, ...weekendBg(ax.px) }}>
-                        {s && <GanttBar ax={ax} span={s} label={item.title} tone={STATUS[item.status]} top={6} height={20} labelMode="inside" />}
+                        {s && <GanttBar ax={ax} span={s} label={item.title} tone={STATUS[item.status]} top={6} height={20} labelMode="inside" pauses={pauses(item, s)} />}
                       </div>
                     </div>
                   );

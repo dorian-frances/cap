@@ -7,7 +7,7 @@ import {
 } from "@/lib/plan";
 import type { Data, Store } from "@/lib/store";
 import type { PickKind } from "./Timeline";
-import { Avatar, Button, Chip, Diamond, InlineInput, Kbd, StatusIcon, Textarea } from "../atoms";
+import { Avatar, Button, Chip, Diamond, InlineTextarea, Kbd, StatusIcon, Textarea } from "../atoms";
 import { IconButton, SectionTitle, SidePanel, SidePanelBody } from "../molecules";
 import AllocationControl, { withAllocation } from "./AllocationControl";
 import { STATUS } from "../tokens";
@@ -133,9 +133,8 @@ export default function ItemPanel({ item, data, plan, store, closing, onClose, o
       </>}>
       <SidePanelBody contentKey={item.id}>
         <div className="flex flex-col gap-3">
-          <InlineInput size="xl" key={item.id + item.title} defaultValue={item.title} aria-label="Titre" placeholder="Sans titre"
-            onBlur={(e) => e.target.value !== item.title && store.updateItems([item.id], { title: e.target.value })}
-            onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()} />
+          <InlineTextarea key={item.id + item.title} defaultValue={item.title} aria-label="Titre" placeholder="Sans titre"
+            onBlur={(e) => { const t = e.target.value.replace(/\s*\n\s*/g, " "); if (t !== item.title) store.updateItems([item.id], { title: t }); }} />
           <div className="flex flex-wrap gap-1.5">
             {!isParent && (
               <Chip onClick={(e) => onPick("status", e.currentTarget)}><StatusIcon status={item.status} size={13} />{STATUS[item.status].label}</Chip>

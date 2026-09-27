@@ -22,6 +22,23 @@ export function InlineInput({ className, size = "md", ...props }: Omit<Component
   );
 }
 
+/** Titre éditable sur plusieurs lignes : grandit avec son contenu, Entrée valide (pas de retour à la ligne). */
+export function InlineTextarea({ className, onInput, onKeyDown, ...props }: ComponentProps<"textarea">) {
+  const fit = (el: HTMLTextAreaElement | null) => {
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  };
+  return (
+    <textarea ref={fit} rows={1} className={cx(
+      "-mx-1 min-w-0 resize-none overflow-hidden rounded px-1 text-[22px] font-semibold leading-tight tracking-tight outline-none",
+      "transition-colors duration-150 placeholder:text-stone-300 hover:bg-stone-50 focus:bg-stone-50",
+      className,
+    )} onInput={(e) => { fit(e.currentTarget); onInput?.(e); }}
+      onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); e.currentTarget.blur(); } onKeyDown?.(e); }} {...props} />
+  );
+}
+
 export function Textarea({ className, ...props }: ComponentProps<"textarea">) {
   return (
     <textarea className={cx(
