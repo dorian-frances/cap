@@ -22,6 +22,8 @@ import TeamView from "@/components/organisms/TeamView";
 import MilestonesView from "@/components/organisms/MilestonesView";
 import AbsencesView from "@/components/organisms/AbsencesView";
 import SettingsView from "@/components/organisms/SettingsView";
+import GuideView from "@/components/organisms/GuideView";
+import { setTheme } from "@/lib/theme";
 import ShareDialog from "@/components/organisms/ShareDialog";
 import AbsenceDialog from "@/components/organisms/AbsenceDialog";
 import EmptyState from "@/components/organisms/EmptyState";
@@ -288,7 +290,7 @@ function ProjectPage() {
 
   const cursorItem = cursor ? byId.get(cursor) : undefined;
   const features = items.filter((i) => i.type === "feature");
-  const viewLabel = view === "settings" ? "Paramètres" : VIEWS.find((v) => v.key === view)?.label;
+  const viewLabel = view === "settings" ? "Paramètres" : view === "guide" ? "Guide" : VIEWS.find((v) => v.key === view)?.label;
 
   const commands: Command[] = [
     ...(targets().length ? [
@@ -309,6 +311,10 @@ function ProjectPage() {
     ...VIEWS.map((v) => ({ id: `go-${v.key}`, group: "Aller à", label: v.label, keys: ["G", v.g], run: () => setParams({ view: v.key, item: null }) })),
     { id: "go-settings", group: "Aller à", label: "Paramètres", keywords: "editeurs lien", run: () => setParams({ view: "settings", item: null }) },
     { id: "share", group: "Aller à", label: "Partager le plan", keywords: "lien client", run: () => setShare(true) },
+    { id: "go-guide", group: "Aller à", label: "Guide", keywords: "aide tutoriel comment fonctionne", run: () => setParams({ view: "guide", item: null }) },
+    { id: "th-dark", group: "Vue", label: "Thème sombre", keywords: "dark mode nuit", run: () => setTheme("dark") },
+    { id: "th-light", group: "Vue", label: "Thème clair", keywords: "light mode jour", run: () => setTheme("light") },
+    { id: "th-system", group: "Vue", label: "Thème du système", keywords: "auto", run: () => setTheme("system") },
     { id: "z1", group: "Vue", label: "Zoom semaine", keys: ["1"], run: () => setParams({ zoom: "semaine" }) },
     { id: "z2", group: "Vue", label: "Zoom mois", keys: ["2"], run: () => setParams({ zoom: "mois" }) },
     { id: "z3", group: "Vue", label: "Zoom trimestre", keys: ["3"], run: () => setParams({ zoom: "trimestre" }) },
@@ -354,7 +360,7 @@ function ProjectPage() {
                   </>}
                   footer={features.length > 0 && (
                     <div className="flex h-8">
-                      <button onClick={() => newItem(null)} className="sticky left-0 flex items-center gap-1.5 border-r border-stone-100 bg-white pl-[62px] text-[13px] text-stone-400 transition-colors hover:text-stone-700" style={{ width: "var(--left)" }}>
+                      <button onClick={() => newItem(null)} className="sticky left-0 flex items-center gap-1.5 border-r border-stone-100 bg-surface pl-[62px] text-[13px] text-stone-400 transition-colors hover:text-stone-700" style={{ width: "var(--left)" }}>
                         <Plus size={14} />Nouvel item
                       </button>
                     </div>
@@ -400,6 +406,7 @@ function ProjectPage() {
         {view === "jalons" && <MilestonesView data={data} plan={plan} store={store} />}
         {view === "absences" && <AbsencesView data={data} store={store} onAdd={() => setAbsenceDlg(true)} />}
         {view === "settings" && <SettingsView data={data} store={store} me={me} />}
+        {view === "guide" && <GuideView onView={(v) => setParams({ view: v, item: null })} onShare={() => setShare(true)} onPalette={() => setPalette(true)} />}
       </div>
 
       {panelItem && (view === "timeline" || view === "equipe") && (

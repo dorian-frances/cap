@@ -4,14 +4,15 @@ import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Menu } from "@base-ui/react/menu";
-import { CalendarDays, Diamond, GanttChart, Link2, LogOut, Plus, Search, Settings, Users } from "lucide-react";
+import { BookOpen, CalendarDays, Diamond, GanttChart, Link2, LogOut, Monitor, Moon, Plus, Search, Settings, Sun, Users } from "lucide-react";
+import { getTheme, setTheme, type Theme } from "@/lib/theme";
 import { supabase } from "@/lib/supabase";
 import { cx } from "@/lib/cx";
 import { Kbd, Logo } from "../atoms";
-import { MenuContent, MenuItem } from "../molecules";
+import { MenuContent, MenuItem, MenuLabel, MenuRadioItem, MenuSeparator } from "../molecules";
 import { personColor } from "../tokens";
 
-export type View = "timeline" | "equipe" | "jalons" | "absences" | "settings";
+export type View = "timeline" | "equipe" | "jalons" | "absences" | "settings" | "guide";
 export const VIEWS: { key: View; label: string; icon: ReactNode; g: string }[] = [
   { key: "timeline", label: "Timeline", icon: <GanttChart size={16} />, g: "T" },
   { key: "equipe", label: "Équipe", icon: <Users size={16} />, g: "E" },
@@ -34,6 +35,7 @@ export default function Sidebar({ projectId, projectName, view, onView, onSearch
   const router = useRouter();
   const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
   const [creating, setCreating] = useState(false);
+  const [theme, setThemeState] = useState<Theme>(getTheme);
 
   useEffect(() => {
     supabase.from("projects").select("id, name").order("created_at").then(({ data }) => setProjects(data ?? []));
@@ -49,7 +51,7 @@ export default function Sidebar({ projectId, projectName, view, onView, onSearch
   return (
     <nav aria-label="Navigation" className="flex h-full w-[232px] shrink-0 flex-col gap-4 border-r border-stone-200 bg-sidebar px-2.5 py-3">
       <div className="flex items-center gap-2 px-1.5 py-1"><Logo /><span className="font-semibold">Cap</span></div>
-      <button onClick={onSearch} className="flex h-[30px] items-center gap-2 rounded-[7px] border border-stone-200 bg-white px-2 text-[13px] text-stone-500 shadow-control transition-colors duration-150 hover:border-stone-300 hover:text-stone-700">
+      <button onClick={onSearch} className="flex h-[30px] items-center gap-2 rounded-[7px] border border-stone-200 bg-surface px-2 text-[13px] text-stone-500 shadow-control transition-colors duration-150 hover:border-stone-300 hover:text-stone-700">
         <Search size={14} /><span className="flex-1 text-left">Rechercher</span><Kbd>⌘K</Kbd>
       </button>
       <div className="flex flex-col gap-px">
@@ -72,13 +74,14 @@ export default function Sidebar({ projectId, projectName, view, onView, onSearch
           <input autoFocus placeholder="Nom du projet" aria-label="Nom du nouveau projet"
             onKeyDown={(e) => { if (e.key === "Enter") create(e.currentTarget.value); if (e.key === "Escape") setCreating(false); }}
             onBlur={(e) => create(e.currentTarget.value)}
-            className="h-7 animate-fade-in rounded-md border border-accent-300 bg-white px-2 text-[13px] outline-none ring-2 ring-accent-100" />
+            className="h-7 animate-fade-in rounded-md border border-accent-300 bg-surface px-2 text-[13px] outline-none ring-2 ring-accent-100" />
         ) : (
           <button onClick={() => setCreating(true)} className={cx(navCls(false), "text-stone-400")}><Plus size={16} />Nouveau projet</button>
         )}
       </div>
       <div className="flex-1" />
       <div className="flex flex-col gap-px">
+        <button onClick={() => onView("guide")} className={navCls(view === "guide")}><NavIcon active={view === "guide"}><BookOpen size={16} /></NavIcon>Guide</button>
         <button onClick={onShare} className={navCls(false)}><NavIcon active={false}><Link2 size={16} /></NavIcon>Partager</button>
         <button onClick={() => onView("settings")} className={navCls(view === "settings")}><NavIcon active={view === "settings"}><Settings size={16} /></NavIcon>Paramètres</button>
         <Menu.Root>
@@ -87,6 +90,13 @@ export default function Sidebar({ projectId, projectName, view, onView, onSearch
             <span className="truncate">{email}</span>
           </Menu.Trigger>
           <MenuContent side="top">
+            <MenuLabel>Thème</MenuLabel>
+            <Menu.RadioGroup value={theme} onValueChange={(v: Theme) => { setTheme(v); setThemeState(v); }}>
+              <MenuRadioItem value="light"><Sun size={14} className="text-stone-500" />Clair</MenuRadioItem>
+              <MenuRadioItem value="dark"><Moon size={14} className="text-stone-500" />Sombre</MenuRadioItem>
+              <MenuRadioItem value="system"><Monitor size={14} className="text-stone-500" />Comme le système</MenuRadioItem>
+            </Menu.RadioGroup>
+            <MenuSeparator />
             <MenuItem icon={<LogOut size={14} />} onClick={() => supabase.auth.signOut().then(() => router.push("/"))}>Se déconnecter</MenuItem>
           </MenuContent>
         </Menu.Root>

@@ -52,7 +52,7 @@ export default function PersonPanel({ person, data, plan, store, closing, onClos
                 <button key={i} role="radio" aria-checked={on} disabled={!!owner} aria-label={owner ? `Couleur prise par ${owner.name}` : `Couleur ${i + 1}`}
                   title={owner ? `Déjà prise par ${owner.name}` : undefined} onClick={() => store.updatePerson(person.id, { color: i })}
                   className="flex aspect-square w-full items-center justify-center rounded-full transition-[transform,box-shadow] duration-150 enabled:hover:scale-110 disabled:opacity-25"
-                  style={{ background: bg, color: fg, boxShadow: on ? `0 0 0 2px #fff, 0 0 0 3.5px ${fg}` : `inset 0 0 0 1px ${fg}33` }}>
+                  style={{ background: bg, color: fg, boxShadow: on ? `0 0 0 2px var(--color-surface), 0 0 0 3.5px ${fg}` : `inset 0 0 0 1px color-mix(in srgb, ${fg} 20%, transparent)` }}>
                   {on && <Check size={12} strokeWidth={3} />}
                 </button>
               );

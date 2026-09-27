@@ -73,7 +73,8 @@ export function TimelineToolbar({ people, ownerFilter, onOwnerFilter, colorBy, o
 export function TeamToolbar({ zoom, onAbsence, onPerson }: { zoom: React.ReactNode; onAbsence: () => void; onPerson: () => void }) {
   return (
     <Toolbar>
-      <span className="flex gap-4">
+      {/* La légende cède la place (tronquée) quand la barre manque de largeur. */}
+      <span className="flex min-w-0 shrink gap-4 overflow-hidden">
         <Legend items={[
           { label: "Occupé", swatch: { background: "var(--color-accent-100)" } },
           { label: "Partiellement libre", swatch: { background: "var(--color-accent-50)" } },

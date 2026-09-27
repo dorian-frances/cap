@@ -2,7 +2,7 @@ import type { ComponentProps } from "react";
 import { cx } from "@/lib/cx";
 
 export const fieldCls = cx(
-  "h-8 rounded-[7px] border border-stone-200 bg-white px-2.5 text-[13px] outline-none",
+  "h-8 rounded-[7px] border border-stone-200 bg-surface px-2.5 text-[13px] outline-none",
   "transition-[border-color,box-shadow] duration-150 placeholder:text-stone-400 hover:border-stone-300",
   "focus:border-accent-400 focus:ring-[3px] focus:ring-accent-100",
 );

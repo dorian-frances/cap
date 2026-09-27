@@ -1,7 +1,7 @@
 import type { Person } from "@/lib/plan";
 import { initials, personColor } from "../tokens";
 
-export function Avatar({ person, size = 20, ring = "#fff" }: { person: Pick<Person, "id" | "name" | "color">; size?: number; ring?: string }) {
+export function Avatar({ person, size = 20, ring = "var(--color-surface)" }: { person: Pick<Person, "id" | "name" | "color">; size?: number; ring?: string }) {
   const [bg, fg] = personColor(person);
   return (
     <span title={person.name} className="inline-flex shrink-0 select-none items-center justify-center rounded-full font-semibold"

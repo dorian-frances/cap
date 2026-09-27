@@ -7,9 +7,9 @@ export type ButtonSize = "sm" | "md" | "form" | "lg";
 
 const VARIANT: Record<ButtonVariant, string> = {
   primary: "bg-stone-900 text-stone-50 shadow-control hover:bg-stone-700",
-  secondary: "border border-stone-200 bg-white text-stone-900 shadow-control hover:border-stone-300 hover:bg-stone-50",
+  secondary: "border border-stone-200 bg-surface text-stone-900 shadow-control hover:border-stone-300 hover:bg-stone-50",
   ghost: "text-stone-600 hover:bg-stone-100 hover:text-stone-900 data-[popup-open]:bg-stone-100",
-  danger: "bg-red-600 text-white shadow-control hover:bg-red-700",
+  danger: "bg-red-600 text-white shadow-control hover:bg-red-600/85",
   dashed: "border border-dashed border-stone-300 text-stone-500 hover:border-stone-400 hover:bg-stone-50 hover:text-stone-700",
 };
 const SIZE: Record<ButtonSize, string> = {

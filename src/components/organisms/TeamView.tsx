@@ -33,8 +33,8 @@ export default function TeamView({ data, plan, store, ax, scrollRef, toolbar, op
       {toolbar}
       <div ref={scrollRef} className="relative min-h-0 flex-1 overflow-auto">
         <div className="relative min-h-full" style={{ width: LEFT + ax.width }}>
-          <div className="sticky top-0 z-20 flex border-b border-stone-200/80 bg-white">
-            <div className="sticky left-0 z-30 flex shrink-0 items-center gap-1.5 border-r border-stone-100 bg-white px-5" style={{ width: LEFT }}>
+          <div className="sticky top-0 z-20 flex border-b border-stone-200/80 bg-surface">
+            <div className="sticky left-0 z-30 flex shrink-0 items-center gap-1.5 border-r border-stone-100 bg-surface px-5" style={{ width: LEFT }}>
               <span className="font-medium">Personnes</span><span className="text-xs text-stone-400">{data.people.length}</span>
             </div>
             <AxisHeader ax={ax} milestones={milestones} items={data.items} plan={plan} />
@@ -47,7 +47,7 @@ export default function TeamView({ data, plan, store, ax, scrollRef, toolbar, op
             return (
               <div key={p.id}>
                 <div data-person-row className={cx("group flex h-11 border-b border-stone-100 transition-colors duration-150 starting:opacity-0", active ? "bg-accent-50/60" : "hover:bg-stone-50")}>
-                  <div className={cx("sticky left-0 z-10 flex shrink-0 items-center gap-2 border-r border-stone-100 pl-3 pr-4 transition-colors duration-150", active ? "bg-accent-50" : "bg-white group-hover:bg-stone-50")} style={{ width: LEFT }}>
+                  <div className={cx("sticky left-0 z-10 flex shrink-0 items-center gap-2 border-r border-stone-100 pl-3 pr-4 transition-colors duration-150", active ? "bg-accent-50" : "bg-surface group-hover:bg-stone-50")} style={{ width: LEFT }}>
                     <button aria-label={isOpen ? "Replier" : "Déplier"} onClick={() => setOpen((s) => { const n = new Set(s); if (n.has(p.id)) n.delete(p.id); else n.add(p.id); return n; })}
                       className="flex size-4 items-center justify-center rounded text-stone-500 transition-colors hover:bg-stone-200">
                       <Chevron open={isOpen} />
@@ -73,7 +73,7 @@ export default function TeamView({ data, plan, store, ax, scrollRef, toolbar, op
                       if (ov) return <div key={w} title={`${Math.round(ov.demand * 100)} % : ${[...ov.ids.map(title), ...(Number(p.defect_share) > 0 ? [`défauts ${Math.round(Number(p.defect_share) * 100)} %`] : [])].join(" + ")}`} className={`${base} bg-red-100 text-red-800`} style={style}>{wide && `${Math.round(ov.demand * 100)} %`}</div>;
                       if (load === "abs") return <div key={w} className={`${base} text-stone-600`} style={{ ...style, background: HATCH.absence }}>{wide && "Absent·e"}</div>;
                       if (!load) return null;
-                      return <div key={w} title={`${load} % de sa capacité`} className={`${base} ${load >= 95 ? "bg-accent-100 text-accent-800" : "bg-accent-50 text-accent-600"}`} style={style}>{wide && `${load} %`}</div>;
+                      return <div key={w} title={`${load} % de sa capacité`} className={`${base} ${load >= 95 ? "bg-accent-100 text-accent-800" : "bg-accent-50 text-accent-700"}`} style={style}>{wide && `${load} %`}</div>;
                     })}
                     {data.absences.filter((a) => a.person_id === p.id).map((a) => (
                       <div key={a.id} title={`${a.label || "Absence"} · ${fmtDay(a.start_date)} → ${fmtDay(a.end_date)}`}
@@ -86,7 +86,7 @@ export default function TeamView({ data, plan, store, ax, scrollRef, toolbar, op
                   const s = plan.spans.get(item.id);
                   return (
                     <div key={item.id} data-person-row className="group flex h-8 animate-fade-in cursor-pointer transition-colors hover:bg-stone-50" onClick={() => onOpenItem(item.id)}>
-                      <div className="sticky left-0 z-10 flex shrink-0 items-center gap-2 border-r border-stone-100 bg-white pl-12 transition-colors group-hover:bg-stone-50" style={{ width: LEFT }}>
+                      <div className="sticky left-0 z-10 flex shrink-0 items-center gap-2 border-r border-stone-100 bg-surface pl-12 transition-colors group-hover:bg-stone-50" style={{ width: LEFT }}>
                         <span className="w-4 text-xs tabular-nums text-stone-400">{i + 1}</span><StatusIcon status={item.status} />
                         <span className="truncate text-stone-700">{item.title || "Sans titre"}</span>
                       </div>
@@ -102,7 +102,7 @@ export default function TeamView({ data, plan, store, ax, scrollRef, toolbar, op
           })}
           <div className="flex h-9">
             <button onClick={() => onOpenPerson(store.addPerson("Nouvelle personne").id)}
-              className="sticky left-0 flex items-center gap-1.5 border-r border-stone-100 bg-white pl-9 text-stone-400 transition-colors hover:text-stone-700" style={{ width: LEFT }}>
+              className="sticky left-0 flex items-center gap-1.5 border-r border-stone-100 bg-surface pl-9 text-stone-400 transition-colors hover:text-stone-700" style={{ width: LEFT }}>
               <Plus size={14} />Ajouter une personne
             </button>
           </div>

@@ -2,32 +2,29 @@
 import type { Status } from "@/lib/plan";
 
 export const STATUS: Record<Status, { label: string; bar: string; border: string; text: string; key: string }> = {
-  todo: { label: "À faire", bar: "#f0eeeb", border: "#e0dcd7", text: "#57534e", key: "1" },
-  doing: { label: "En cours", bar: "#fcebd0", border: "#f4d4a2", text: "#8a4a0b", key: "2" },
-  done: { label: "Fait", bar: "#ddf2e3", border: "#bfe3ca", text: "#1f6b3a", key: "3" },
+  todo: { label: "À faire", bar: "var(--st-todo-bar)", border: "var(--st-todo-border)", text: "var(--st-todo-text)", key: "1" },
+  doing: { label: "En cours", bar: "var(--st-doing-bar)", border: "var(--st-doing-border)", text: "var(--st-doing-text)", key: "2" },
+  done: { label: "Fait", bar: "var(--st-done-bar)", border: "var(--st-done-border)", text: "var(--st-done-text)", key: "3" },
 };
 
-export const ACCENT = "#5b5bd6";
+export const ACCENT = "var(--color-accent-600)";
 
+// Valeurs par thème dans globals.css.
 export const HATCH = {
-  late: "repeating-linear-gradient(135deg,rgba(220,38,38,.30) 0 2px,rgba(253,236,236,.95) 2px 5px)",
-  lateBorder: "#f0a8a8",
+  late: "var(--hatch-late)",
+  lateBorder: "var(--hatch-late-border)",
   // Retard sur l'estimation (ambre) : distinct du dépassement de jalon (rouge).
-  overrun: "repeating-linear-gradient(135deg,rgba(217,119,6,.32) 0 2px,rgba(254,243,199,.95) 2px 5px)",
-  overrunBorder: "#efc587",
+  overrun: "var(--hatch-overrun)",
+  overrunBorder: "var(--hatch-overrun-border)",
   // En pause : rayures verticales grises, comme un « || ».
-  pause: "repeating-linear-gradient(90deg,rgba(120,113,108,.35) 0 2px,rgba(250,250,249,.97) 2px 6px)",
-  pauseBorder: "#c9c4bf",
-  absence: "repeating-linear-gradient(135deg,#d6d3d1 0 2px,#f4f3f1 2px 5px)",
-  absenceOverlay: "repeating-linear-gradient(135deg,rgba(168,162,158,.5) 0 2px,transparent 2px 5px)",
+  pause: "var(--hatch-pause)",
+  pauseBorder: "var(--hatch-pause-border)",
+  absence: "var(--hatch-absence)",
+  absenceOverlay: "var(--hatch-absence-overlay)",
 };
 
 /** Palette des personnes : [fond, texte], teintes bien distinctes. */
-export const PALETTE: [string, string][] = [
-  ["#d7ede6", "#0f5e4c"], ["#fbe0cc", "#9a3f0c"], ["#e4ddf5", "#4c3a8a"], ["#f6dfe6", "#8a2f4f"],
-  ["#dde8f6", "#1f4f86"], ["#f8ecc4", "#7a5a00"], ["#dcf0d9", "#2c6a24"], ["#f9dcdc", "#9b2323"],
-  ["#dff1f4", "#155e6b"], ["#e0e2fb", "#3538a8"], ["#eef0d5", "#5b6313"], ["#e7e5e4", "#44403c"],
-];
+export const PALETTE: [string, string][] = Array.from({ length: 12 }, (_, i) => [`var(--p${i}-bg)`, `var(--p${i}-fg)`]);
 
 /** Couleur choisie d'une personne, sinon couleur stable dérivée de l'id : [fond, texte]. */
 export function personColor(p: string | { id: string; color?: number | null }) {

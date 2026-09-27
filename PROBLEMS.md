@@ -134,6 +134,16 @@ Principe clé : **la barre n'est pas dessinée, elle est calculée** à partir d
 - Pour qui : toute l'équipe
 - Résolu quand : chacun choisit sa couleur dans une palette de 12 depuis sa fiche ; une couleur déjà prise est grisée ; une nouvelle personne reçoit la première couleur libre ; en « Couleur : owner », on reconnaît chaque personne sans ambiguïté.
 
+### Guide
+- Problème : P7 (faire comprendre l'outil à qui arrive, sans présentation)
+- Pour qui : tout nouvel utilisateur
+- Résolu quand : une page « Guide » (barre latérale, palette) explique la mentalité (barres calculées, faits avant priorités, fin de tâche = engagement), les questions P1, P2, P7, P10, P11 avec un lien vers la vue qui y répond, la vie d'une tâche, la lecture de la timeline et les raccourcis.
+
+### Thème sombre
+- Problème : transverse (confort de lecture, usage prolongé)
+- Pour qui : toute l'équipe
+- Résolu quand : on choisit Clair, Sombre ou Système dans le menu du compte ; le sombre est cendré (pas noir), les contrastes de texte restent au niveau AA (texte secondaire ≥ 4,5:1), et toutes les vues, barres et hachures restent lisibles.
+
 ### Groupe « À planifier »
 - Problème : P11
 - Pour qui : PM

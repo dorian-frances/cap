@@ -6,14 +6,14 @@ import { AlertDialog } from "@base-ui/react/alert-dialog";
 import { cx } from "@/lib/cx";
 import { Button } from "../atoms/Button";
 
-export const backdropCls = "fixed inset-0 z-40 bg-stone-900/15 transition-opacity duration-200 data-[ending-style]:opacity-0 data-[starting-style]:opacity-0";
+export const backdropCls = "fixed inset-0 z-40 bg-black/20 transition-opacity duration-200 data-[ending-style]:opacity-0 data-[starting-style]:opacity-0";
 export const dialogMotion = cx(
   "transition-[opacity,scale,translate] duration-200 ease-out-quint",
   "data-[starting-style]:translate-y-2 data-[starting-style]:scale-[.97] data-[starting-style]:opacity-0",
   "data-[ending-style]:translate-y-1 data-[ending-style]:scale-[.98] data-[ending-style]:opacity-0 data-[ending-style]:duration-150",
 );
 const popupCls = cx(
-  "fixed left-1/2 top-[18vh] z-50 w-[min(440px,calc(100vw-32px))] -translate-x-1/2 rounded-xl border border-stone-200 bg-white p-5 shadow-dialog outline-none",
+  "fixed left-1/2 top-[18vh] z-50 w-[min(440px,calc(100vw-32px))] -translate-x-1/2 rounded-xl border border-stone-200 bg-surface p-5 shadow-dialog outline-none",
   dialogMotion,
 );
 

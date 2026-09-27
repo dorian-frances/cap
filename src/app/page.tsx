@@ -102,7 +102,7 @@ function Projects() {
 
   if (!empty) return null;
   return (
-    <form className="flex animate-rise-in flex-col gap-3 rounded-xl border border-stone-200 bg-white p-5 shadow-card" onSubmit={(e) => { e.preventDefault(); create(new FormData(e.currentTarget)); }}>
+    <form className="flex animate-rise-in flex-col gap-3 rounded-xl border border-stone-200 bg-surface p-5 shadow-card" onSubmit={(e) => { e.preventDefault(); create(new FormData(e.currentTarget)); }}>
       <label htmlFor="name" className="text-sm font-medium">Créez votre premier projet</label>
       <Input id="name" name="name" required autoFocus placeholder="Refonte de l'app client" />
       {error && <p className="text-xs text-red-600">{error}</p>}

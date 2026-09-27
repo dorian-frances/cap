@@ -17,7 +17,7 @@ export default function EmptyState({ data, onPerson, onItem, onMilestone, onExam
   const next = steps.findIndex((s) => !s.done);
   return (
     <div className="pointer-events-none absolute inset-x-0 top-[140px] z-20 flex justify-center px-4">
-      <div className="pointer-events-auto flex w-[440px] max-w-full animate-rise-in flex-col gap-4 rounded-xl border border-stone-200 bg-white p-6 shadow-card">
+      <div className="pointer-events-auto flex w-[440px] max-w-full animate-rise-in flex-col gap-4 rounded-xl border border-stone-200 bg-surface p-6 shadow-card">
         <div>
           <h2 className="text-lg font-semibold tracking-tight">Lancez votre plan</h2>
           <p className="mt-1 text-[13px] leading-relaxed text-stone-500">Trois étapes, et les barres se calculent toutes seules à partir de la charge et de la disponibilité de chacun.</p>

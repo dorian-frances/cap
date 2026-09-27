@@ -3,7 +3,7 @@ import type { Axis } from "@/lib/axis";
 import { Diamond } from "../atoms/Diamond";
 
 export const weekendBg = (px: number) => ({
-  backgroundImage: `repeating-linear-gradient(90deg, transparent 0 ${5 * px}px, rgba(120,113,108,.055) ${5 * px}px ${7 * px}px)`,
+  backgroundImage: `repeating-linear-gradient(90deg, transparent 0 ${5 * px}px, var(--weekend) ${5 * px}px ${7 * px}px)`,
 });
 
 const msLate = (m: Item, items: Item[], plan: Plan) => items.some((i) => i.target_id === m.id && lateBy(i, plan.spans.get(i.id), items) > 0);

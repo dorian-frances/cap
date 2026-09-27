@@ -22,9 +22,9 @@ export default function CommandPalette({ open, onOpenChange, commands, context }
   return (
     <Dialog.Root open={open} onOpenChange={(o) => { onOpenChange(o); if (!o) setQ(""); }}>
       <Dialog.Portal>
-        <Dialog.Backdrop className={cx(backdropCls, "bg-stone-900/10")} />
+        <Dialog.Backdrop className={cx(backdropCls, "bg-black/15")} />
         <Dialog.Popup aria-label="Palette de commandes"
-          className={cx("fixed left-1/2 top-[14vh] z-50 flex max-h-[70vh] w-[min(580px,calc(100vw-32px))] -translate-x-1/2 flex-col overflow-hidden rounded-xl border border-stone-200 bg-white shadow-dialog outline-none", dialogMotion)}>
+          className={cx("fixed left-1/2 top-[14vh] z-50 flex max-h-[70vh] w-[min(580px,calc(100vw-32px))] -translate-x-1/2 flex-col overflow-hidden rounded-xl border border-stone-200 bg-surface shadow-dialog outline-none", dialogMotion)}>
           <div className="flex h-[50px] shrink-0 items-center gap-2.5 border-b border-stone-100 px-4">
             {context && <span className="max-w-[160px] truncate rounded-[5px] bg-stone-100 px-2 py-0.5 text-xs text-stone-600">{context}</span>}
             <input autoFocus value={q} placeholder="Tapez une commande ou cherchez un item…" aria-label="Commande"

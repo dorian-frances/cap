@@ -69,7 +69,7 @@ export default function Timeline({ scrollRef, ...p }: Props) {
     if (hasChildren) return <SummaryBar ax={ax} span={span} collapsed={p.collapsed.has(item.id)} selected={selected} title={title} />;
     const owner = p.colorBy === "owner" ? people.find((o) => o.id === item.owner_ids[0]) : undefined;
     const tone = owner
-      ? { bar: personColor(owner)[0], border: "rgba(28,25,23,.08)", text: personColor(owner)[1] }
+      ? { bar: personColor(owner)[0], border: "color-mix(in srgb, currentColor 10%, transparent)", text: personColor(owner)[1] }
       : STATUS[item.status];
     const late = lateBy(item, span, items) > 0;
     return (
@@ -89,7 +89,7 @@ export default function Timeline({ scrollRef, ...p }: Props) {
     const late = hasChildren ? isLate(item, plan, items) : lateBy(item, span, items) > 0;
     const owners = people.filter((o) => item.owner_ids.includes(o.id));
     const over = hasChildren || item.status === "done" ? [] : [...itemOverload(plan, item)].map(([id, ov]) => ({ o: people.find((x) => x.id === id), ov }));
-    const ring = sel ? "#f3f3fc" : "#fff";
+    const ring = sel ? "var(--color-accent-50)" : "var(--color-surface)";
     const hint = drop?.id === item.id ? (drop.where === "before" ? "shadow-[inset_0_2px_0_var(--color-accent-600)]" : "shadow-[inset_0_-2px_0_var(--color-accent-600)]") : "";
     return (
       <div key={inGroup ? `u-${item.id}` : item.id} data-row={item.id} role="row" aria-selected={sel}
@@ -104,7 +104,7 @@ export default function Timeline({ scrollRef, ...p }: Props) {
         }}
         onDragLeave={() => setDrop((d) => (d?.id === item.id ? null : d))}
         onDrop={(e) => { e.preventDefault(); if (dragId && drop) p.onDrop(dragId, drop.id, drop.where); setDrop(null); setDragId(null); }}>
-        <div className={cx("sticky left-0 z-10 flex shrink-0 items-center gap-1.5 border-r border-stone-100 pr-3 transition-colors duration-150", sel ? "bg-accent-50" : "bg-white group-hover:bg-stone-50")} style={{ width: "var(--left)" }}>
+        <div className={cx("sticky left-0 z-10 flex shrink-0 items-center gap-1.5 border-r border-stone-100 pr-3 transition-colors duration-150", sel ? "bg-accent-50" : "bg-surface group-hover:bg-stone-50")} style={{ width: "var(--left)" }}>
           <span draggable aria-label="Déplacer" title="Glisser pour réordonner"
             onDragStart={(e) => { setDragId(item.id); e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", item.id); }}
             onDragEnd={() => { setDragId(null); setDrop(null); }}
@@ -133,7 +133,7 @@ export default function Timeline({ scrollRef, ...p }: Props) {
                 e.stopPropagation();
               }}
               onBlur={(e) => p.onRename(item.id, e.currentTarget.value)}
-              className="h-6 min-w-0 flex-1 rounded border border-accent-400 bg-white px-1.5 text-[13px] outline-none ring-2 ring-accent-100" />
+              className="h-6 min-w-0 flex-1 rounded border border-accent-400 bg-surface px-1.5 text-[13px] outline-none ring-2 ring-accent-100" />
           ) : (
             <span data-cell="title" title={`${inGroup ? pathOf(item) : ""}${item.title || "Sans titre"}`} onDoubleClick={() => p.onStartRename(item.id)}
               className={cx("min-w-0 truncate text-[13px]", hasChildren && "font-semibold", !item.title && "text-stone-400")}>
@@ -207,8 +207,8 @@ export default function Timeline({ scrollRef, ...p }: Props) {
   return (
     <div ref={scrollRef} className="relative min-h-0 flex-1 overflow-auto" role="grid" aria-label="Timeline des items">
       <div className="relative min-h-full" style={{ width: left + ax.width, "--left": `${left}px` } as CSSProperties}>
-        <div className="sticky top-0 z-20 flex border-b border-stone-200/80 bg-white">
-          <div className="sticky left-0 z-30 flex shrink-0 flex-col justify-center border-r border-stone-100 bg-white pl-5 pr-3" style={{ width: "var(--left)" }}>
+        <div className="sticky top-0 z-20 flex border-b border-stone-200/80 bg-surface">
+          <div className="sticky left-0 z-30 flex shrink-0 flex-col justify-center border-r border-stone-100 bg-surface pl-5 pr-3" style={{ width: "var(--left)" }}>
             {p.header}
             <div role="separator" aria-orientation="vertical" aria-label="Largeur de la colonne des titres" aria-valuenow={left} aria-valuemin={280} aria-valuemax={760}
               tabIndex={0} title="Glisser pour élargir · double-clic : largeur par défaut"
@@ -226,7 +226,7 @@ export default function Timeline({ scrollRef, ...p }: Props) {
           <>
             <div className="flex h-9 border-t border-stone-100">
               <button onClick={p.onToggleGroup} aria-expanded={p.groupOpen}
-                className="sticky left-0 flex items-center gap-2 border-r border-stone-100 bg-white pl-[34px] pr-3 text-left transition-colors hover:bg-stone-50" style={{ width: "var(--left)" }}>
+                className="sticky left-0 flex items-center gap-2 border-r border-stone-100 bg-surface pl-[34px] pr-3 text-left transition-colors hover:bg-stone-50" style={{ width: "var(--left)" }}>
                 <span className="text-stone-500"><Chevron open={p.groupOpen} /></span>
                 <span className="text-[13px] font-medium">À planifier</span>
                 <span className="text-xs tabular-nums text-stone-400">{p.unplanned.length}</span>

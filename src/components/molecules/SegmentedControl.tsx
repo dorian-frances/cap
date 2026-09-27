@@ -10,7 +10,7 @@ export function SegmentedControl<T extends string>({ value, onChange, options, l
   return (
     <div role="group" aria-label={label} className={cx("relative grid rounded-[7px] bg-stone-100 p-0.5", stretch ? "w-full" : "w-max")}
       style={{ gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))` }}>
-      <span aria-hidden className="absolute inset-y-0.5 left-0.5 rounded-[5px] bg-white shadow-control transition-transform duration-250 ease-out-quint"
+      <span aria-hidden className="absolute inset-y-0.5 left-0.5 rounded-[5px] bg-raised shadow-control transition-transform duration-250 ease-out-quint"
         style={{ width: `calc((100% - 4px) / ${options.length})`, transform: `translateX(${i * 100}%)` }} />
       {options.map((o) => (
         <button key={o.value} type="button" aria-pressed={o.value === value} onClick={() => onChange(o.value)}

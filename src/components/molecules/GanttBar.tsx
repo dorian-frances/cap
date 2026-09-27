@@ -44,7 +44,7 @@ export function GanttBar({ ax, span, label, tone, lateFrom, pauses = [], top, he
           <div key={p.start} title={title} className={cx("pointer-events-none absolute flex items-center justify-center rounded-[5px] text-stone-500", motion)}
             style={{ left: l, width: w, top, height, background: HATCH.pause, boxShadow: `inset 0 0 0 1px ${HATCH.pauseBorder}` }}>
             {w >= 18 && (
-              <span className="flex items-center gap-0.5 rounded-full bg-white px-1 text-[10px] font-medium leading-[14px] text-stone-600 shadow-[0_0_0_1px_rgb(28_25_23/0.08)]">
+              <span className="flex items-center gap-0.5 rounded-full bg-surface px-1 text-[10px] font-medium leading-[14px] text-stone-600 shadow-[0_0_0_1px_rgb(28_25_23/0.08)]">
                 <Pause size={8} fill="currentColor" strokeWidth={0} />{w >= 64 && "Pause"}
               </span>
             )}
@@ -63,6 +63,6 @@ export function SummaryBar({ ax, span, collapsed, selected, title }: { ax: Axis;
   const left = ax.x(span.start);
   return (
     <div title={title} className={cx("absolute rounded-[3px]", motion)}
-      style={{ left, width: ax.x(span.end) - left + ax.px, top: collapsed ? 12 : 13, height: collapsed ? 8 : 6, background: collapsed ? "#8a847e" : "#b9b3ad", boxShadow: selected ? `0 0 0 2px ${ACCENT}` : undefined }} />
+      style={{ left, width: ax.x(span.end) - left + ax.px, top: collapsed ? 12 : 13, height: collapsed ? 8 : 6, background: collapsed ? "var(--color-stone-500)" : "var(--color-stone-400)", boxShadow: selected ? `0 0 0 2px ${ACCENT}` : undefined }} />
   );
 }

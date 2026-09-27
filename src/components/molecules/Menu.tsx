@@ -9,7 +9,7 @@ import { cx } from "@/lib/cx";
 import { Kbd } from "../atoms/Kbd";
 
 export const popupCls = cx(
-  "min-w-[220px] rounded-[10px] border border-stone-200 bg-white p-1.5 text-[13px] text-stone-900 shadow-popup outline-none",
+  "min-w-[220px] rounded-[10px] border border-stone-200 bg-surface p-1.5 text-[13px] text-stone-900 shadow-popup outline-none",
   "origin-(--transform-origin) transition-[opacity,scale] duration-150 ease-out-quint",
   "data-[starting-style]:scale-[.97] data-[starting-style]:opacity-0 data-[ending-style]:scale-[.97] data-[ending-style]:opacity-0 data-[ending-style]:duration-100",
 );

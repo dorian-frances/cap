@@ -81,15 +81,15 @@ export default function SharePage() {
           <StatCard label="Avancement" value={`${done} livrable${done > 1 ? "s" : ""} sur ${top.length} terminé${done > 1 ? "s" : ""}`}
             note={<span className="mt-1 flex gap-[3px]">{top.map((r) => {
               const s = statusOf(r.item.id);
-              return <span key={r.item.id} className="h-1.5 flex-1 rounded-full" style={{ background: s === "done" ? "#7cc79a" : s === "doing" ? "#efc587" : "#e7e5e4" }} />;
+              return <span key={r.item.id} className="h-1.5 flex-1 rounded-full" style={{ background: s === "done" ? "var(--color-green-600)" : s === "doing" ? "var(--color-amber-600)" : "var(--color-stone-200)" }} />;
             })}</span>} />
         </div>
 
-        <div className="animate-rise-in overflow-hidden rounded-[10px] border border-stone-200/80 bg-white">
+        <div className="animate-rise-in overflow-hidden rounded-[10px] border border-stone-200/80 bg-surface">
           <div className="overflow-x-auto">
             <div className="relative" style={{ width: LEFT + ax.width }}>
               <div className="flex border-b border-stone-200/80">
-                <div className="sticky left-0 z-10 flex shrink-0 items-center border-r border-stone-100 bg-white px-5 text-[13px] font-medium" style={{ width: LEFT }}>Livrables</div>
+                <div className="sticky left-0 z-10 flex shrink-0 items-center border-r border-stone-100 bg-surface px-5 text-[13px] font-medium" style={{ width: LEFT }}>Livrables</div>
                 <AxisHeader ax={ax} milestones={milestones} items={items} plan={plan} />
               </div>
               {visible.map(({ item, depth, hasChildren }) => {
@@ -99,7 +99,7 @@ export default function SharePage() {
                 const behind = (hasChildren ? leavesOf(item.id) : [item]).some((l) => overdue(l, plan.spans.get(l.id)));
                 return (
                   <div key={item.id} className={`flex border-b border-stone-100 ${depth ? "h-9 animate-fade-in" : "h-12"}`}>
-                    <div className="sticky left-0 z-10 flex shrink-0 items-center gap-2.5 border-r border-stone-100 bg-white pr-4" style={{ width: LEFT, paddingLeft: depth ? 44 : 16 }}>
+                    <div className="sticky left-0 z-10 flex shrink-0 items-center gap-2.5 border-r border-stone-100 bg-surface pr-4" style={{ width: LEFT, paddingLeft: depth ? 44 : 16 }}>
                       {depth === 0 && (hasChildren ? (
                         <button aria-label={open.has(item.id) ? "Replier" : "Déplier"} className="flex size-4 items-center justify-center rounded text-stone-500 transition-colors hover:bg-stone-100 print:hidden"
                           onClick={() => setOpen((o) => { const n = new Set(o); if (n.has(item.id)) n.delete(item.id); else n.add(item.id); return n; })}>

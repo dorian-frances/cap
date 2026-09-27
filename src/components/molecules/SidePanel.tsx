@@ -10,7 +10,7 @@ export function SidePanel({ label, closing, width = 440, header, footer, childre
 }) {
   return (
     <aside data-side-panel aria-label={label} style={{ width }} className={cx(
-      "absolute bottom-0 right-0 top-0 z-30 flex max-w-full flex-col border-l border-stone-200 bg-white shadow-panel",
+      "absolute bottom-0 right-0 top-0 z-30 flex max-w-full flex-col border-l border-stone-200 bg-surface shadow-panel",
       "transition-[translate,opacity] duration-250 ease-out-quint starting:translate-x-8 starting:opacity-0",
       closing && "pointer-events-none translate-x-8 opacity-0 duration-200",
     )}>

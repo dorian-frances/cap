@@ -18,6 +18,8 @@
   --color-accent-800: #3b3b9c;
   --color-canvas: #fafaf9;
   --color-sidebar: #f4f3f1;
+  --color-surface: #ffffff; /* fond des pages, panneaux, menus */
+  --color-raised: #ffffff; /* élément posé sur un fond gris (curseur de SegmentedControl) */
 
   --shadow-popup: 0 12px 32px -8px rgb(28 25 23 / 0.18), 0 2px 6px rgb(28 25 23 / 0.06);
   --shadow-dialog: 0 24px 64px -12px rgb(28 25 23 / 0.28);
@@ -40,13 +42,80 @@
   }
 }
 
+/* Couleurs calculées à l'exécution (styles inline) : statuts, hachures, palette des personnes. */
+:root {
+  --st-todo-bar: #f0eeeb; --st-todo-border: #e0dcd7; --st-todo-text: #57534e;
+  --st-doing-bar: #fcebd0; --st-doing-border: #f4d4a2; --st-doing-text: #8a4a0b;
+  --st-done-bar: #ddf2e3; --st-done-border: #bfe3ca; --st-done-text: #1f6b3a;
+  --hatch-late: repeating-linear-gradient(135deg,rgba(220,38,38,.30) 0 2px,rgba(253,236,236,.95) 2px 5px);
+  --hatch-late-border: #f0a8a8;
+  --hatch-overrun: repeating-linear-gradient(135deg,rgba(217,119,6,.32) 0 2px,rgba(254,243,199,.95) 2px 5px);
+  --hatch-overrun-border: #efc587;
+  --hatch-pause: repeating-linear-gradient(90deg,rgba(120,113,108,.35) 0 2px,rgba(250,250,249,.97) 2px 6px);
+  --hatch-pause-border: #c9c4bf;
+  --hatch-absence: repeating-linear-gradient(135deg,#d6d3d1 0 2px,#f4f3f1 2px 5px);
+  --hatch-absence-overlay: repeating-linear-gradient(135deg,rgba(168,162,158,.5) 0 2px,transparent 2px 5px);
+  --weekend: rgba(120,113,108,.055);
+  --p0-bg: #d7ede6; --p0-fg: #0f5e4c; --p1-bg: #fbe0cc; --p1-fg: #9a3f0c; --p2-bg: #e4ddf5; --p2-fg: #4c3a8a;
+  --p3-bg: #f6dfe6; --p3-fg: #8a2f4f; --p4-bg: #dde8f6; --p4-fg: #1f4f86; --p5-bg: #f8ecc4; --p5-fg: #7a5a00;
+  --p6-bg: #dcf0d9; --p6-fg: #2c6a24; --p7-bg: #f9dcdc; --p7-fg: #9b2323; --p8-bg: #dff1f4; --p8-fg: #155e6b;
+  --p9-bg: #e0e2fb; --p9-fg: #3538a8; --p10-bg: #eef0d5; --p10-fg: #5b6313; --p11-bg: #e7e5e4; --p11-fg: #44403c;
+}
+
+/*
+ * Mode sombre « cendré » (gris bleutés doux, façon Discord) : on redéfinit les échelles Tailwind
+ * utilisées par l'app. Les neutres sont inversés (50 = survol sombre, 900 = texte clair),
+ * les teintes gardent leur rôle (50/100 = fond d'alerte, 700/800 = texte lisible dessus).
+ * Contrastes sur le fond #313338 : texte 17:1, secondaire (stone-500) 4.9:1, discret (stone-400) 3.9:1.
+ */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --color-surface: #313338;
+  --color-raised: #4a4c53;
+  --color-canvas: #2b2d31;
+  --color-sidebar: #2b2d31;
+  --color-stone-50: #383a40; --color-stone-100: #3f4147; --color-stone-200: #4a4c53; --color-stone-300: #5d6069;
+  --color-stone-400: #8b9099; --color-stone-500: #9ba1ab; --color-stone-600: #b5bac1; --color-stone-700: #c9cdd3;
+  --color-stone-800: #dbdee1; --color-stone-900: #ebedef; --color-stone-950: #f5f6f7;
+  --color-accent-50: #36395a; --color-accent-100: #3e4270; --color-accent-200: #4c5090; --color-accent-300: #6468bd;
+  --color-accent-400: #8589e6; --color-accent-500: #9296f0; --color-accent-600: #6d71e8; --color-accent-700: #b3b6fa; --color-accent-800: #d2d4ff;
+  --color-red-50: #3b2528; --color-red-100: #4a2a2e; --color-red-200: #6a3339; --color-red-300: #8f434a; --color-red-400: #e06c75;
+  --color-red-600: #e5484d; --color-red-700: #ff9592; --color-red-800: #ffb3b0;
+  --color-amber-50: #3a3021; --color-amber-100: #4a3b20; --color-amber-200: #614b24; --color-amber-300: #7d6128;
+  --color-amber-600: #f0a020; --color-amber-700: #ffc56b; --color-amber-800: #ffd48f; --color-amber-900: #ffe2b3;
+  --color-green-600: #3aa66c; --color-green-700: #7fd6a0;
+  --color-violet-100: #3b3357; --color-violet-800: #d4c7ff;
+  --shadow-popup: 0 12px 32px -8px rgb(0 0 0 / 0.55), 0 0 0 1px rgb(255 255 255 / 0.04);
+  --shadow-dialog: 0 24px 64px -12px rgb(0 0 0 / 0.6), 0 0 0 1px rgb(255 255 255 / 0.04);
+  --shadow-panel: -16px 0 40px -16px rgb(0 0 0 / 0.55);
+  --shadow-card: 0 16px 40px -12px rgb(0 0 0 / 0.5);
+  --shadow-control: 0 1px 2px rgb(0 0 0 / 0.3);
+
+  --st-todo-bar: #3d4047; --st-todo-border: #50535b; --st-todo-text: #c9cdd3;
+  --st-doing-bar: #4a3a22; --st-doing-border: #6b5328; --st-doing-text: #f5c77e;
+  --st-done-bar: #23402f; --st-done-border: #2f5a41; --st-done-text: #8fdcaa;
+  --hatch-late: repeating-linear-gradient(135deg,rgba(248,113,113,.45) 0 2px,rgba(69,35,38,.95) 2px 5px);
+  --hatch-late-border: #7f3a40;
+  --hatch-overrun: repeating-linear-gradient(135deg,rgba(245,166,35,.45) 0 2px,rgba(74,58,34,.95) 2px 5px);
+  --hatch-overrun-border: #7a5a26;
+  --hatch-pause: repeating-linear-gradient(90deg,rgba(185,190,200,.4) 0 2px,rgba(56,58,64,.97) 2px 6px);
+  --hatch-pause-border: #5d6069;
+  --hatch-absence: repeating-linear-gradient(135deg,#4a4c53 0 2px,#36383e 2px 5px);
+  --hatch-absence-overlay: repeating-linear-gradient(135deg,rgba(160,165,175,.35) 0 2px,transparent 2px 5px);
+  --weekend: rgba(0,0,0,.08);
+  --p0-bg: #1f3d36; --p0-fg: #7fd6c0; --p1-bg: #4a2e1c; --p1-fg: #f7b28a; --p2-bg: #332c4d; --p2-fg: #c4b5f5;
+  --p3-bg: #472937; --p3-fg: #f3a8c4; --p4-bg: #223550; --p4-fg: #9cc2f2; --p5-bg: #453b1b; --p5-fg: #f0d27a;
+  --p6-bg: #243d24; --p6-fg: #9bd98f; --p7-bg: #4a2426; --p7-fg: #f5a3a3; --p8-bg: #1d3c42; --p8-fg: #8ad6e3;
+  --p9-bg: #2a2e57; --p9-fg: #aab1f7; --p10-bg: #383c1f; --p10-fg: #cfd68a; --p11-bg: #3f4147; --p11-fg: #c9cdd3;
+}
+
 html {
   color-scheme: light;
 }
 
 body {
-  background: #ffffff;
-  color: #1c1917;
+  background: var(--color-surface);
+  color: var(--color-stone-900);
   -webkit-font-smoothing: antialiased;
 }
 

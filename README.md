@@ -28,6 +28,8 @@ Stack : Next.js (tout en client components) + Supabase (Postgres, Auth, RLS). D�
 
 Mouvement : popups et dialogues en fondu + échelle depuis leur ancre, panneaux latéraux qui glissent (entrée et sortie via `usePresence`), barres qui glissent vers leurs nouvelles dates quand le plan est recalculé. Tout est coupé si le système demande moins d'animations (`prefers-reduced-motion`).
 
+Thèmes : clair, sombre « cendré » (gris bleutés doux) ou système, au choix dans le menu du compte (ou la palette). Le sombre redéfinit les échelles Tailwind sous `[data-theme="dark"]` dans `globals.css` : les composants gardent leurs classes (`bg-surface`, `text-stone-500`…) et les couleurs calculées (statuts, hachures, palette des personnes) passent par des variables CSS. Un script dans `<head>` applique le thème avant le premier rendu.
+
 UI : Tailwind v4, `@base-ui/react` (primitives accessibles), `lucide-react` (icônes).
 
 ## Raccourcis
