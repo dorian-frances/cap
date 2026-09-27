@@ -9,7 +9,7 @@ export function SidePanel({ label, closing, width = 440, header, footer, childre
   label: string; closing?: boolean; width?: number; header: ReactNode; footer?: ReactNode; children: ReactNode;
 }) {
   return (
-    <aside aria-label={label} style={{ width }} className={cx(
+    <aside data-side-panel aria-label={label} style={{ width }} className={cx(
       "absolute bottom-0 right-0 top-0 z-30 flex max-w-full flex-col border-l border-stone-200 bg-white shadow-panel",
       "transition-[translate,opacity] duration-250 ease-out-quint starting:translate-x-8 starting:opacity-0",
       closing && "pointer-events-none translate-x-8 opacity-0 duration-200",

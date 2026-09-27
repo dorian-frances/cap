@@ -27,14 +27,15 @@ Principe clé : **la barre n'est pas dessinée, elle est calculée** à partir d
 
 - **Durée** d'un Item = JH ÷ somme des disponibilités de ses owners. Les JH sont répartis entre les owners.
 - **Enchaînement** : chaque owner traite ses Items dans l'ordre de priorité ; un Item démarre quand tous ses owners sont libres.
-- **Disponibilité** : 100 % par défaut, moins les week-ends, les temps partiels et les absences saisies.
+- **Disponibilité** : 100 % par défaut, moins les week-ends, les temps partiels, les absences saisies et la **part consacrée aux défauts** (réglée par personne, ex. 20 %). Les allocations sur les tâches se comptent sur ce temps restant ; l'occupation affichée inclut les défauts.
 - **Jours fériés** : non gérés automatiquement (des freelances travaillent certains fériés). On saisit une absence, éventuellement pour toute l'équipe d'un coup.
 - **Dates réelles, pas de barre dessinée** : une tâche passe par trois états qui enregistrent chacun une date.
   - *À faire* : pas de date ; enchaînée par priorité, jamais avant aujourd'hui.
   - *En cours* : date de début réelle (aujourd'hui par défaut, modifiable). Fin prévue = début + JH sur la disponibilité des owners.
   - *Terminée* : date de fin réelle, saisissable a posteriori.
 - **Tant qu'une tâche n'est pas terminée, elle est en cours** : si sa fin prévue est passée, elle se prolonge jusqu'à aujourd'hui (retard sur l'estimation, en ambre) et les tâches suivantes de ses owners glissent.
-- **Allocation** : une tâche en cours occupe une part du temps de ses owners, datée (« 50 % à partir du 14 sept. », « En attente » = 0 %). 100 % par défaut : on vise le one-piece flow. Le reste du temps va aux autres tâches, en parallèle.
+- **Allocation par personne** : chaque owner consacre une part de son temps à la tâche (« Alice 100 %, Bob 20 % en aide »), datée pour une tâche en cours (« 50 % à partir du 14 sept. », 0 % = en attente). 100 % par défaut : on vise le one-piece flow. Le reste du temps va aux autres tâches, en parallèle.
+- **Personne en aide** : une tâche attend ses owners à 100 % ; une personne à moins de 100 % donne ce qu'elle peut sans retarder le démarrage ni bloquer ses propres tâches.
 - **Fin prévue = engagement** : date de début + JH à l'allocation du jour de démarrage, sur la disponibilité des owners. La fin de tâche sert de jalon : finir (ou prévoir de finir) après, c'est glisser.
 - **Surcharge** : si les allocations d'une personne dépassent 100 % un jour donné, ses tâches ralentissent au prorata (et glissent), et elle est signalée.
 - **Faits avant priorités** : les tâches terminées puis en cours sont placées d'abord, les tâches à faire remplissent le temps libre restant.

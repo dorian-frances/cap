@@ -46,7 +46,7 @@ export default function TeamView({ data, plan, store, ax, scrollRef, toolbar, op
             const free = plan.freeFrom.get(p.id);
             return (
               <div key={p.id}>
-                <div className={cx("group flex h-11 border-b border-stone-100 transition-colors duration-150 starting:opacity-0", active ? "bg-accent-50/60" : "hover:bg-stone-50")}>
+                <div data-person-row className={cx("group flex h-11 border-b border-stone-100 transition-colors duration-150 starting:opacity-0", active ? "bg-accent-50/60" : "hover:bg-stone-50")}>
                   <div className={cx("sticky left-0 z-10 flex shrink-0 items-center gap-2 border-r border-stone-100 pl-3 pr-4 transition-colors duration-150", active ? "bg-accent-50" : "bg-white group-hover:bg-stone-50")} style={{ width: LEFT }}>
                     <button aria-label={isOpen ? "Replier" : "Déplier"} onClick={() => setOpen((s) => { const n = new Set(s); if (n.has(p.id)) n.delete(p.id); else n.add(p.id); return n; })}
                       className="flex size-4 items-center justify-center rounded text-stone-500 transition-colors hover:bg-stone-200">
@@ -55,7 +55,7 @@ export default function TeamView({ data, plan, store, ax, scrollRef, toolbar, op
                     <button onClick={() => onOpenPerson(p.id)} className="flex min-w-0 flex-1 items-center gap-2 text-left">
                       <Avatar person={p} size={24} />
                       <span className="truncate font-medium">{p.name}</span>
-                      <span className="text-xs text-stone-400">{Math.round(p.capacity * 100)} %</span>
+                      <span className="text-xs text-stone-400">{Math.round(p.capacity * 100)} %{Number(p.defect_share) > 0 && ` · ${Math.round(Number(p.defect_share) * 100)} % défauts`}</span>
                     </button>
                     {over.has(p.id) && (
                       <span title={`Allocations cumulées jusqu'à ${Math.round(over.get(p.id)!.peak * 100)} % du ${fmtDay(toIso(over.get(p.id)!.from))} au ${fmtDay(toIso(over.get(p.id)!.to))}`}
@@ -85,7 +85,7 @@ export default function TeamView({ data, plan, store, ax, scrollRef, toolbar, op
                 {isOpen && mine.map(({ item }, i) => {
                   const s = plan.spans.get(item.id);
                   return (
-                    <div key={item.id} className="group flex h-8 animate-fade-in cursor-pointer transition-colors hover:bg-stone-50" onClick={() => onOpenItem(item.id)}>
+                    <div key={item.id} data-person-row className="group flex h-8 animate-fade-in cursor-pointer transition-colors hover:bg-stone-50" onClick={() => onOpenItem(item.id)}>
                       <div className="sticky left-0 z-10 flex shrink-0 items-center gap-2 border-r border-stone-100 bg-white pl-12 transition-colors group-hover:bg-stone-50" style={{ width: LEFT }}>
                         <span className="w-4 text-xs tabular-nums text-stone-400">{i + 1}</span><StatusIcon status={item.status} />
                         <span className="truncate text-stone-700">{item.title || "Sans titre"}</span>

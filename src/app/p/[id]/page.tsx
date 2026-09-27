@@ -207,6 +207,22 @@ function ProjectPage() {
     return n;
   });
 
+  // Clic en dehors du panneau latéral : il se ferme. Sauf sur une autre ligne (qui l'ouvre à sa place),
+  // dans le panneau, ou dans un menu / une date ouvert(e) depuis lui (rendus hors de l'app, ou sélecteur ouvert).
+  const overlay = !!picker || palette || share || absenceDlg;
+  const panelOpen = !!openId || !!openPerson;
+  useEffect(() => {
+    if (!panelOpen || overlay) return;
+    const h = (e: PointerEvent) => {
+      const t = e.target instanceof Element ? e.target : null;
+      if (!t?.closest("[data-app-shell]") || t.closest("[data-side-panel],[data-row],[data-person-row]")) return;
+      setParams({ item: null });
+      setOpenPerson(null);
+    };
+    document.addEventListener("pointerdown", h);
+    return () => document.removeEventListener("pointerdown", h);
+  }, [panelOpen, overlay, setParams]);
+
   // --- Clavier ---
   const keys = useRef<(e: KeyboardEvent) => void>(() => {});
   // Le gestionnaire est remplacé après chaque rendu pour toujours voir l'état courant.

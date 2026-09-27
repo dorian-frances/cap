@@ -2,7 +2,7 @@
 
 import { ArrowRight, CalendarCheck, CalendarDays, ChevronRight, CircleSlash, Clock, Divide, Link2, Play, Trash2, TriangleAlert, X } from "lucide-react";
 import {
-  absentSet, allocationOn, isWeekend, pctLabel, toIso, lateBy, overdue, slip, toDay, todayIso, totalJh, unplannedReason, workingDays, fmtDay,
+  absentSet, allocationOn, planCapacity, isWeekend, pctLabel, toIso, lateBy, overdue, slip, toDay, todayIso, totalJh, unplannedReason, workingDays, fmtDay,
   type Item, type Plan,
 } from "@/lib/plan";
 import type { Data, Store } from "@/lib/store";
@@ -65,11 +65,12 @@ export default function ItemPanel({ item, data, plan, store, closing, onClose, o
         const prevSpan = plan.spans.get(prev.id);
         const who = shared?.name ?? "l'équipe";
         const link = <button onClick={() => onOpen(prev.id)} className="underline decoration-stone-300 underline-offset-2 transition-colors hover:decoration-stone-500">{prev.title || "Sans titre"}</button>;
-        const parallel = prevSpan && prevSpan.end >= span.start && allocationOn(prev, span.start) < 1;
+        const pctPrev = shared ? allocationOn(prev, span.start, shared.id) : 1;
+        const parallel = prevSpan && prevSpan.end >= span.start && pctPrev < 1;
         why.push({
           icon: <ArrowRight size={14} />,
           text: parallel
-            ? <>Avance en parallèle de {link}, où {who} est à {pctLabel(allocationOn(prev, span.start))}</>
+            ? <>Avance en parallèle de {link}, où {who} est à {pctLabel(pctPrev)}</>
             : overdue(prev, prevSpan)
               ? <>Attend que {who} termine {link}, en retard de {slip(prevSpan)} j et toujours en cours</>
             : <>Démarre quand {who} termine {link}{prevSpan && ` (${fmtDay(prevSpan.end)})`}</>,
@@ -78,9 +79,15 @@ export default function ItemPanel({ item, data, plan, store, closing, onClose, o
         why.push({ icon: <ArrowRight size={14} />, text: item.status === "todo" ? "Démarre dès que possible, au plus tôt aujourd'hui" : `Démarrée au plus tôt (début du projet le ${fmtDay(data.project.start_date)})` });
       }
       if (item.status === "doing" && (item.allocations ?? []).length)
-        why.push({ icon: <Clock size={14} />, text: `Allocation : ${[...(item.allocations ?? [])].sort((a, b) => a.from.localeCompare(b.from)).map((a) => `${pctLabel(a.pct)} à partir du ${fmtDay(a.from)}`).join(", ")}` });
-      const cap = owners.reduce((sum, o) => sum + Number(o.capacity), 0);
-      const who = owners.map((o) => `${o.name}${Number(o.capacity) < 1 ? ` à ${Math.round(o.capacity * 100)} %` : ""}`).join(" + ");
+        why.push({ icon: <Clock size={14} />, text: `Allocation : ${[...(item.allocations ?? [])].sort((a, b) => a.from.localeCompare(b.from))
+          .map((a) => `${a.person ? `${people.find((p) => p.id === a.person)?.name ?? "?"} ` : ""}${pctLabel(a.pct)} à partir du ${fmtDay(a.from)}`).join(", ")}` });
+      // Débit de départ : capacité de chaque owner × son allocation sur la tâche.
+      const pctOf = (id: string) => allocationOn(item, span.start, id);
+      const cap = owners.reduce((sum, o) => sum + planCapacity(o) * pctOf(o.id), 0) || owners.reduce((sum, o) => sum + planCapacity(o), 0);
+      const who = owners.map((o) => {
+        const eff = planCapacity(o) * pctOf(o.id);
+        return `${o.name}${eff < 1 ? ` à ${pctLabel(eff)}` : ""}`;
+      }).join(" + ");
       why.push({ icon: <Divide size={14} />, text: `${Number(item.estimate_jh)} j ÷ ${who} = ${Math.ceil(Number(item.estimate_jh) / cap)} jours de travail · fin prévue le ${fmtDay(span.planned ?? span.end)}` });
       if (item.status === "done" && item.done_on) {
         const n = slip(span);
@@ -179,7 +186,7 @@ export default function ItemPanel({ item, data, plan, store, closing, onClose, o
           </div>
         )}
 
-        {item.status === "doing" && !isParent && <AllocationControl item={item} ownerNames={owners.map((o) => o.name).join(", ")} store={store} />}
+        {!isParent && item.status !== "done" && owners.length > 0 && <AllocationControl item={item} owners={owners} dated={item.status === "doing"} store={store} />}
 
         {late > 0 && target && (
           <div className="flex animate-rise-in flex-col gap-2 rounded-lg border border-red-100 bg-red-50/60 px-3.5 py-3 text-[13px]">

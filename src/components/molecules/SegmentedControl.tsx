@@ -14,7 +14,7 @@ export function SegmentedControl<T extends string>({ value, onChange, options, l
         style={{ width: `calc((100% - 4px) / ${options.length})`, transform: `translateX(${i * 100}%)` }} />
       {options.map((o) => (
         <button key={o.value} type="button" aria-pressed={o.value === value} onClick={() => onChange(o.value)}
-          className={cx("relative h-[22px] rounded-[5px] px-2.5 text-xs transition-colors duration-150", o.value === value ? "font-medium text-stone-900" : "text-stone-500 hover:text-stone-800")}>
+          className={cx("relative h-[22px] whitespace-nowrap rounded-[5px] px-2.5 text-xs transition-colors duration-150", o.value === value ? "font-medium text-stone-900" : "text-stone-500 hover:text-stone-800")}>
           {o.label}
         </button>
       ))}

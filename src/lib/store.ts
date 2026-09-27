@@ -103,7 +103,7 @@ export function useProject(id: string) {
 
   // People / absences
   const addPerson = (name: string) => {
-    const p: Person = { id: uid(), name, capacity: 1 };
+    const p: Person = { id: uid(), name, capacity: 1, defect_share: 0 };
     local((d) => ({ ...d, people: [...d.people, p] }));
     write(supabase.from("people").insert({ ...p, project_id: pid }));
     return p;

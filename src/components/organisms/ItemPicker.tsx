@@ -5,7 +5,7 @@ import { useRef, useState } from "react";
 import { Menu } from "@base-ui/react/menu";
 import { Popover } from "@base-ui/react/popover";
 import { Plus } from "lucide-react";
-import { isWeekend, startBefore, toDay, toIso, todayIso, fmtDay, type Item, type Plan, type Status } from "@/lib/plan";
+import { isWeekend, planCapacity, startBefore, toDay, toIso, todayIso, fmtDay, type Item, type Plan, type Status } from "@/lib/plan";
 import type { Data, Store } from "@/lib/store";
 import { cx } from "@/lib/cx";
 import type { PickKind } from "./Timeline";
@@ -76,7 +76,7 @@ export function ItemPicker({ state, data, plan, store, onClose: close, onStep, o
           const free = plan.freeFrom.get(p.id);
           return (
             <MenuCheckboxItem key={p.id} checked={items.every((i) => i.owner_ids.includes(p.id))} onCheckedChange={(c) => toggle(p.id, c)}
-              trailing={<span className="text-xs text-stone-400">{Number(p.capacity) < 1 ? `${Math.round(p.capacity * 100)} % · ` : ""}{free ? `libre le ${fmtDay(toIso(free))}` : "libre"}</span>}>
+              trailing={<span className="text-xs text-stone-400">{planCapacity(p) < 1 ? `${Math.round(planCapacity(p) * 100)} % dispo · ` : ""}{free ? `libre le ${fmtDay(toIso(free))}` : "libre"}</span>}>
               <Avatar person={p} /><span className="truncate">{p.name}</span>
             </MenuCheckboxItem>
           );

@@ -1,7 +1,7 @@
 // node --test src/lib/plan.test.ts
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { schedule as run, startBefore, overloaded, weekOverload, isLate, lateBy, overdue, slip, totalJh, unplannedReason, weekLoad, absentSet, toDay, type Item } from "./plan.ts";
+import { schedule as run, allocationOn, startBefore, overloaded, weekOverload, isLate, lateBy, overdue, slip, totalJh, unplannedReason, weekLoad, absentSet, toDay, type Item } from "./plan.ts";
 
 const MON = "2026-09-28"; // lundi
 const A = { id: "a", name: "A", capacity: 1 };
@@ -190,4 +190,27 @@ test("surcharge : deux tâches à 100 % en parallèle ralentissent au prorata", 
   assert.deepEqual(overloaded(plan, MON).get("a"), { from: toDay(MON), to: toDay("2026-10-01"), peak: 2 });
   assert.equal(weekOverload(plan, "a", toDay(MON))?.demand, 2);
   assert.equal(plan.freeFrom.get("a"), toDay("2026-10-02"));
+});
+
+test("allocation par personne : une personne en aide à 20 % ne bloque pas et continue ses tâches", () => {
+  const x = item({ estimate_jh: 6, owner_ids: ["a", "b"], allocations: [{ from: MON, pct: 0.2, person: "b" }] });
+  const y = item({ estimate_jh: 1, owner_ids: ["b"] });
+  const before = item({ estimate_jh: 2, owner_ids: ["b"], status: "doing", started_on: MON });
+  const plan = schedule([before, x, y], [A, B], [], MON, MON);
+  // b est pris à 100 % lun-mar par sa tâche en cours : x démarre quand même lundi avec a (1 JH/j),
+  // puis 1,2 JH/j à partir de mercredi : 1 + 1 + 1,2 × 3 = 5,6 vendredi, fin lundi 5
+  assert.deepEqual(plan.spans.get(x.id), { start: MON, end: "2026-10-05" });
+  // y (b seul) récupère les 80 % restants de b à partir de mercredi
+  assert.deepEqual(plan.spans.get(y.id), { start: "2026-09-30", end: "2026-10-01" });
+  assert.equal(allocationOn(x, MON, "b"), 0.2);
+  assert.equal(allocationOn(x, MON, "a"), 1);
+  assert.equal(allocationOn(x, MON), 1);
+});
+
+test("part défauts : retirée du temps disponible, comptée dans l'occupation", () => {
+  const h = { id: "h", name: "Hugues", capacity: 1, defect_share: 0.2 };
+  const x = item({ estimate_jh: 4, owner_ids: ["h"] });
+  const plan = schedule([x], [h], [], MON);
+  assert.deepEqual(plan.spans.get(x.id), { start: MON, end: "2026-10-02" }); // 0,8 JH/j : 5 jours
+  assert.equal(weekLoad(plan, h, absentSet([]), toDay(MON)), 100);
 });
