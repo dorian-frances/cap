@@ -120,12 +120,43 @@ export function schedule(items: Item[], people: Person[], absences: Absence[], s
   const rows = orderItems(items);
   const spans = new Map<string, Span | null>();
   const leaves = rows.filter((r) => !r.hasChildren).map((r) => r.item);
-  const ordered = [...leaves.filter((i) => i.status !== "todo"), ...leaves.filter((i) => i.status === "todo")];
+  // Terminées avec leurs deux dates d'abord (faits intangibles), puis en cours, puis à faire.
+  const closed = (i: Item) => i.status === "done" && !!i.started_on && !!i.done_on;
+  const ordered = [
+    ...leaves.filter(closed),
+    ...leaves.filter((i) => i.status !== "todo" && !closed(i)),
+    ...leaves.filter((i) => i.status === "todo"),
+  ];
+  const cap = (p: string, d: number) => (isWeekend(d) || absent.has(`${p}:${d}`) ? 0 : capacity.get(p)!);
 
   for (const item of ordered) {
     const owners = item.owner_ids.filter((o) => capacity.has(o));
     const jh = Number(item.estimate_jh);
     const done = item.status === "done";
+
+    if (closed(item)) {
+      // La barre suit les dates réelles, quelle que soit la charge de ses owners ce jour-là.
+      const a = toDay(item.started_on!);
+      const b = Math.max(a, toDay(item.done_on!));
+      // Fin prévue : l'estimation sur la seule disponibilité de ses owners.
+      let p = a;
+      for (let rest = jh; rest > 1e-9 && owners.length && p < a + HORIZON; p++) {
+        rest -= owners.reduce((sum, o) => sum + cap(o, p), 0);
+        if (rest <= 1e-9) break;
+      }
+      if (!owners.length) p = b;
+      // Les JH sont répartis sur la période réelle.
+      let total = 0;
+      for (let d = a; d <= b; d++) for (const o of owners) total += cap(o, d);
+      const ratio = total ? Math.min(1, jh / total) : 0;
+      for (let d = a; d <= b; d++) for (const o of owners) take(o, d, Math.min(left(o, d), cap(o, d) * ratio));
+      for (const o of owners) {
+        const next = left(o, b) > 1e-9 ? b : b + 1;
+        if (next >= (free.get(o) ?? -Infinity)) { free.set(o, next); last.set(o, item.id); }
+      }
+      spans.set(item.id, { start: toIso(a), end: toIso(b), ...(p !== b ? { planned: toIso(p) } : {}) });
+      continue;
+    }
     if (!owners.length || (!(jh > 0) && !done)) { spans.set(item.id, null); continue; }
 
     const fixed = item.status !== "todo" && item.started_on ? toDay(item.started_on) : null;

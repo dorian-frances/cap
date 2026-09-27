@@ -152,3 +152,12 @@ test("terminée sans date de début : début déduit de l'estimation", () => {
   const abs = [{ id: "z", person_id: "a", start_date: "2026-09-02", end_date: "2026-09-02" }];
   assert.equal(startBefore("2026-09-04", 3, [A], abs), "2026-09-01");
 });
+
+test("terminée avec ses dates : la barre suit les dates réelles, même en parallèle d'une tâche en retard", () => {
+  const late = item({ estimate_jh: 5, owner_ids: ["a"], status: "doing", started_on: "2026-08-10" });
+  const closed = item({ estimate_jh: 10, owner_ids: ["a"], status: "done", started_on: "2026-08-24", done_on: "2026-09-04" });
+  const s = schedule([late, closed], [A], [], MON, "2026-09-27").spans;
+  assert.deepEqual(s.get(closed.id), { start: "2026-08-24", end: "2026-09-04" });
+  assert.equal(s.get(late.id)!.end, "2026-09-27");
+  assert.equal(s.get(late.id)!.start, "2026-08-10");
+});
