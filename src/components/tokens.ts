@@ -19,16 +19,25 @@ export const HATCH = {
   absenceOverlay: "repeating-linear-gradient(135deg,rgba(168,162,158,.5) 0 2px,transparent 2px 5px)",
 };
 
-const PALETTE = [
-  ["#d7ede6", "#0f5e4c"], ["#f3e1d1", "#8a4b17"], ["#e4ddf5", "#4c3a8a"], ["#f6dfe6", "#8a2f4f"],
-  ["#dde8f6", "#1f4f86"], ["#eef0d5", "#5b6313"], ["#f5e3cf", "#7a4a12"], ["#dff1f4", "#155e6b"],
+/** Palette des personnes : [fond, texte], teintes bien distinctes. */
+export const PALETTE: [string, string][] = [
+  ["#d7ede6", "#0f5e4c"], ["#fbe0cc", "#9a3f0c"], ["#e4ddf5", "#4c3a8a"], ["#f6dfe6", "#8a2f4f"],
+  ["#dde8f6", "#1f4f86"], ["#f8ecc4", "#7a5a00"], ["#dcf0d9", "#2c6a24"], ["#f9dcdc", "#9b2323"],
+  ["#dff1f4", "#155e6b"], ["#e0e2fb", "#3538a8"], ["#eef0d5", "#5b6313"], ["#e7e5e4", "#44403c"],
 ];
 
-/** Couleur stable dérivée d'un id : [fond, texte]. */
-export function personColor(id: string) {
+/** Couleur choisie d'une personne, sinon couleur stable dérivée de l'id : [fond, texte]. */
+export function personColor(p: string | { id: string; color?: number | null }) {
+  if (typeof p !== "string" && p.color != null) return PALETTE[p.color % PALETTE.length];
   let h = 0;
-  for (const c of id) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  for (const c of typeof p === "string" ? p : p.id) h = (h * 31 + c.charCodeAt(0)) >>> 0;
   return PALETTE[h % PALETTE.length];
+}
+
+/** Première couleur que personne n'a encore (la moins utilisée si la palette est épuisée). */
+export function freeColor(people: { color?: number | null }[]) {
+  const n = PALETTE.map((_, i) => people.filter((p) => p.color === i).length);
+  return n.indexOf(Math.min(...n));
 }
 
 export const initials = (name: string) =>

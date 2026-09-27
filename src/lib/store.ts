@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { isWeekend, toDay, toIso, todayIso, type Absence, type Item, type Person, type Project } from "./plan";
 import { supabase } from "./supabase";
 import { toasts } from "@/components/molecules/Toast";
+import { freeColor } from "@/components/tokens";
 
 export type Data = {
   project: Project & { share_token: string };
@@ -103,7 +104,7 @@ export function useProject(id: string) {
 
   // People / absences
   const addPerson = (name: string) => {
-    const p: Person = { id: uid(), name, capacity: 1, defect_share: 0 };
+    const p: Person = { id: uid(), name, capacity: 1, defect_share: 0, color: freeColor(data?.people ?? []) };
     local((d) => ({ ...d, people: [...d.people, p] }));
     write(supabase.from("people").insert({ ...p, project_id: pid }));
     return p;
@@ -148,7 +149,7 @@ export function useProject(id: string) {
   // Projet exemple pour démarrer vite.
   const seedExample = async () => {
     const [a, b, c] = [["Alice Martin", 1], ["Bob Durand", 0.5], ["Claire Lefèvre", 1]]
-      .map(([name, capacity]) => ({ id: uid(), name: name as string, capacity: capacity as number }));
+      .map(([name, capacity], k) => ({ id: uid(), name: name as string, capacity: capacity as number, color: freeColor(data!.people) + k }));
     local((d) => ({ ...d, people: [...d.people, a, b, c] }));
     await write(supabase.from("people").insert([a, b, c].map((p) => ({ ...p, project_id: pid }))));
     const start = data!.project.start_date;

@@ -1,7 +1,7 @@
 // Domaine Cap : types + calcul du planning. Fonctions pures, sans dépendance.
 
 export type Project = { id: string; name: string; start_date: string; share_token?: string };
-export type Person = { id: string; name: string; capacity: number; defect_share?: number };
+export type Person = { id: string; name: string; capacity: number; defect_share?: number; color?: number | null };
 
 /** Temps d'une personne disponible pour le plan : sa capacité moins sa part consacrée aux défauts. */
 export const planCapacity = (p: Person) => Number(p.capacity) * (1 - Number(p.defect_share ?? 0));
@@ -380,12 +380,12 @@ export function overloaded(plan: Plan, today = todayIso()) {
   return out;
 }
 
-/** Owners d'un Item en surcharge sur sa période : pic, dates, autres tâches en cause. */
-export function itemOverload(plan: Plan, item: Item) {
+/** Owners d'un Item en surcharge à partir d'aujourd'hui (le passé est acté) : pic, dates, autres tâches en cause. */
+export function itemOverload(plan: Plan, item: Item, today = todayIso()) {
   const span = plan.spans.get(item.id);
   const out = new Map<string, { from: number; to: number; peak: number; others: Set<string> }>();
   if (!span) return out;
-  for (let d = toDay(span.start); d <= toDay(span.end); d++)
+  for (let d = Math.max(toDay(span.start), toDay(today)); d <= toDay(span.end); d++)
     for (const o of item.owner_ids) {
       const ov = plan.overload.get(`${o}:${d}`);
       if (!ov?.ids.includes(item.id)) continue;

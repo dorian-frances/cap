@@ -1,11 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Trash2, X } from "lucide-react";
+import { Check, Plus, Trash2, X } from "lucide-react";
 import { allocationOn, pctLabel, orderItems, overloaded, todayIso, toIso, fmtDay, type Person, type Plan } from "@/lib/plan";
 import type { Data, Store } from "@/lib/store";
 import { Avatar, Button, InlineInput, Input, StatusIcon } from "../atoms";
 import { ConfirmDialog, DateRangePicker, Field, IconButton, SectionTitle, Select, SidePanel, SidePanelBody, fmtRange, type Range } from "../molecules";
+import { PALETTE, personColor } from "../tokens";
 
 const DEFECTS = [0, 10, 20, 30, 40, 50].map((v) => ({ value: String(v), label: v ? `${v} %` : "Aucun" }));
 export const CAPACITIES = [100, 90, 80, 70, 60, 50, 40, 30, 20, 10].map((v) => ({ value: String(v), label: `${v} %${v === 100 ? " (plein temps)" : ""}` }));
@@ -42,6 +43,22 @@ export default function PersonPanel({ person, data, plan, store, closing, onClos
             onBlur={(e) => e.target.value.trim() && e.target.value !== person.name && store.updatePerson(person.id, { name: e.target.value.trim() })}
             onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()} className="flex-1" />
         </div>
+        <Field label="Couleur">
+          <div role="radiogroup" aria-label="Couleur" className="grid grid-cols-12 gap-1.5">
+            {PALETTE.map(([bg, fg], i) => {
+              const owner = data.people.find((x) => x.id !== person.id && personColor(x) === PALETTE[i]);
+              const on = personColor(person) === PALETTE[i];
+              return (
+                <button key={i} role="radio" aria-checked={on} disabled={!!owner} aria-label={owner ? `Couleur prise par ${owner.name}` : `Couleur ${i + 1}`}
+                  title={owner ? `Déjà prise par ${owner.name}` : undefined} onClick={() => store.updatePerson(person.id, { color: i })}
+                  className="flex aspect-square w-full items-center justify-center rounded-full transition-[transform,box-shadow] duration-150 enabled:hover:scale-110 disabled:opacity-25"
+                  style={{ background: bg, color: fg, boxShadow: on ? `0 0 0 2px #fff, 0 0 0 3.5px ${fg}` : `inset 0 0 0 1px ${fg}33` }}>
+                  {on && <Check size={12} strokeWidth={3} />}
+                </button>
+              );
+            })}
+          </div>
+        </Field>
         <Field inline label="Disponibilité">
           <Select label="Disponibilité" className="w-44" options={CAPACITIES} value={String(Math.round(person.capacity * 100))}
             onValueChange={(v) => store.updatePerson(person.id, { capacity: Number(v) / 100 })} />

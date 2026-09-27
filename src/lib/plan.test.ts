@@ -1,7 +1,7 @@
 // node --test src/lib/plan.test.ts
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { schedule as run, allocationOn, startBefore, overloaded, weekOverload, isLate, lateBy, overdue, slip, totalJh, unplannedReason, weekLoad, absentSet, toDay, type Item } from "./plan.ts";
+import { schedule as run, allocationOn, itemOverload, startBefore, overloaded, weekOverload, isLate, lateBy, overdue, slip, totalJh, unplannedReason, weekLoad, absentSet, toDay, type Item } from "./plan.ts";
 
 const MON = "2026-09-28"; // lundi
 const A = { id: "a", name: "A", capacity: 1 };
@@ -227,4 +227,13 @@ test("part défauts : allocation ajustée à 80 %, plus de surcharge ; 50 % rest
   const py = schedule([y], [h], [], MON, MON);
   assert.deepEqual(py.spans.get(y.id), { start: MON, end: "2026-09-29" }); // 0,5 JH/j, pas 0,4
   assert.equal(py.overload.size, 0);
+});
+
+test("surcharge passée puis corrigée : plus d'alerte sur la tâche", () => {
+  const t = { id: "t", name: "Tancrède", capacity: 1, defect_share: 0.2 };
+  const x = item({ estimate_jh: 15, owner_ids: ["t"], status: "doing", started_on: "2026-09-07", allocations: [{ from: "2026-09-25", pct: 0.8, person: "t" }] });
+  const plan = run([x], [t], [], "2026-09-07", "2026-09-28");
+  assert.equal(plan.overload.has(`t:${toDay("2026-09-08")}`), true); // 120 % avant le 25 : acté
+  assert.equal(itemOverload(plan, x, "2026-09-28").size, 0);
+  assert.equal(overloaded(plan, "2026-09-28").size, 0);
 });

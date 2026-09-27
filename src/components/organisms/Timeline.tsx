@@ -54,7 +54,7 @@ export default function Timeline({ scrollRef, ...p }: Props) {
     const span = plan.spans.get(item.id)!;
     const title = `${item.title || "Sans titre"} · ${fmtDay(span.start)} → ${fmtDay(span.end)} · ${totalJh(items, item.id)} j`;
     if (hasChildren) return <SummaryBar ax={ax} span={span} collapsed={p.collapsed.has(item.id)} selected={selected} title={title} />;
-    const owner = p.colorBy === "owner" ? item.owner_ids[0] : undefined;
+    const owner = p.colorBy === "owner" ? people.find((o) => o.id === item.owner_ids[0]) : undefined;
     const tone = owner
       ? { bar: personColor(owner)[0], border: "rgba(28,25,23,.08)", text: personColor(owner)[1] }
       : STATUS[item.status];

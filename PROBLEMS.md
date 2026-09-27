@@ -122,7 +122,12 @@ Principe clé : **la barre n'est pas dessinée, elle est calculée** à partir d
 ### Alerte de surcharge
 - Problème : P2
 - Pour qui : PM, tech lead
-- Résolu quand : une personne dont les allocations cumulées, défauts compris, dépassent 100 % est signalée (compteur sur « Équipe », badge « Surcharge », semaines en rouge avec les tâches en cause, détail dans sa fiche) ; sur la timeline, la tâche porte un badge « 120 % » ; son panneau détaille l'addition (« 100 % ici + 20 % défauts »), explique l'allongement et propose « Passer Hugues à 80 % ».
+- Résolu quand : une personne dont les allocations cumulées, défauts compris, dépassent 100 % est signalée (compteur sur « Équipe », badge « Surcharge », semaines en rouge avec les tâches en cause, détail dans sa fiche) ; sur la timeline, la tâche porte un badge « 120 % » ; son panneau détaille l'addition (« 100 % ici + 20 % défauts »), explique l'allongement et propose « Passer Hugues à 80 % ». Seule la surcharge d'aujourd'hui et à venir alerte : une surcharge passée est actée (elle se lit dans le glissement).
+
+### Couleur par personne
+- Problème : P2
+- Pour qui : toute l'équipe
+- Résolu quand : chacun choisit sa couleur dans une palette de 12 depuis sa fiche ; une couleur déjà prise est grisée ; une nouvelle personne reçoit la première couleur libre ; en « Couleur : owner », on reconnaît chaque personne sans ambiguïté.
 
 ### Groupe « À planifier »
 - Problème : P11
