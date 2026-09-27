@@ -1,19 +1,23 @@
 @import "tailwindcss";
 
 @theme inline {
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+}
+
+html {
+  color-scheme: light;
 }
 
 body {
-  background: #f8fafc;
-  color: #0f172a;
+  background: #ffffff;
+  color: #1c1917;
+  -webkit-font-smoothing: antialiased;
 }
 
-@layer components {
-  .input { @apply rounded border border-slate-300 bg-white px-2 py-1.5 text-sm outline-none focus:border-slate-500; }
-  .cell { @apply rounded border border-transparent bg-transparent px-1 py-0.5 outline-none hover:border-slate-200 focus:border-slate-400 focus:bg-white; }
-  .btn { @apply rounded border border-slate-300 bg-white px-3 py-1.5 text-sm hover:bg-slate-50; }
-  .btn-primary { @apply rounded bg-slate-900 px-3 py-1.5 text-sm text-white hover:bg-slate-700; }
-  .icon { @apply rounded px-1 text-slate-400 hover:bg-slate-100 hover:text-slate-900 disabled:opacity-30; }
+@layer base {
+  :focus-visible {
+    outline: 2px solid #5b5bd6;
+    outline-offset: 1px;
+  }
 }

@@ -9,12 +9,36 @@ Stack : Next.js (tout en client components) + Supabase (Postgres, Auth, RLS). D�
 
 | Fichier | Rôle |
 |---|---|
-| `src/lib/plan.ts` | Domaine : types + calcul du planning (fonctions pures) |
-| `src/components/Timeline.tsx` | Timeline (vues Items / Équipe), partagée édition + consultation |
-| `src/app/page.tsx` | Connexion + liste des projets |
-| `src/app/p/[id]/page.tsx` | Édition d'un projet |
-| `src/app/share/[token]/page.tsx` | Consultation publique (lecture seule, sans compte) |
-| `supabase/migrations/` | Schéma, RLS, fonctions `create_project` et `get_shared_project` |
+| `src/lib/plan.ts` | Domaine : types + calcul du planning (fonctions pures, testées) |
+| `src/lib/store.ts` | État d'un projet : chargement, écritures optimistes, annulation |
+| `src/components/Timeline.tsx` | Timeline (échelle, lignes, barres), partagée avec la vue client |
+| `src/components/ItemPanel.tsx` | Panneau de détail d'un Item, dont « Pourquoi ces dates » |
+| `src/components/pickers.tsx` | Menus statut / owners / estimation / jalon |
+| `src/components/views.tsx` | Vues Équipe, Jalons, Absences, Paramètres + dialogues |
+| `src/app/p/[id]/page.tsx` | Page projet : assemblage, clavier, sélection, clic droit, ⌘K |
+| `src/app/share/[token]/page.tsx` | Vue client en lecture seule (sans compte) |
+| `supabase/migrations/` | Schéma, RLS, `create_project`, `get_shared_project` |
+
+UI : Tailwind v4, `@base-ui/react` (menus, popovers, dialogues, toasts), `lucide-react` (icônes).
+
+## Raccourcis
+
+| Touche | Action |
+|---|---|
+| `⌘K` | Palette de commandes |
+| `C` | Nouvel item |
+| `J` / `K` ou `↑` / `↓` | Item suivant / précédent (`⇧` pour étendre la sélection) |
+| `Entrée` / `Espace` | Ouvrir le panneau |
+| `S` `A` `E` `M` | Statut, owners, estimation, jalon cible |
+| `R` | Renommer |
+| `Tab` / `⇧Tab` | Imbriquer / désimbriquer |
+| `⌥↑` / `⌥↓` | Monter / descendre en priorité |
+| `←` / `→` | Replier / déplier |
+| `X` | Ajouter à la sélection |
+| `⌫` puis `⌘Z` | Supprimer, annuler |
+| `1` `2` `3` | Zoom semaine / mois / trimestre |
+| `T` | Revenir à aujourd'hui |
+| `G` puis `T` `E` `J` `A` | Aller à Timeline, Équipe, Jalons, Absences |
 
 ## Dev local
 
@@ -25,6 +49,9 @@ cp .env.example .env.local   # URL http://127.0.0.1:54321 + clé "Publishable" a
 npm run dev
 ```
 
+Google n'est pas configuré en local : la page de connexion propose « Connexion locale (dev) » (email + mot de passe), visible uniquement en `npm run dev`.
+Compte de test local : `pm@cap.test` / `password123`.
+
 Tests :
 
 ```bash
@@ -32,17 +59,17 @@ npm test          # calcul du planning
 npm run test:db   # droits d'accès (RLS), nécessite supabase start
 ```
 
-Compte de test local (créé via « Créer un compte ») : `pm@cap.test` / `password123`.
-
 ## Déploiement
 
 1. **Supabase** : créer un projet sur supabase.com, puis depuis ce dossier :
    ```bash
    supabase login
-   supabase link --project-ref <ref-du-projet>
+   supabase link
    supabase db push
    ```
-2. **Auth Supabase** (Authentication > URL Configuration) : mettre `Site URL` = l'URL Vercel.
-   Par défaut la confirmation d'email est activée : soit la garder (le SMTP intégré est limité à quelques emails/heure), soit la désactiver dans Authentication > Providers > Email.
-3. **Vercel** : importer le repo GitHub, puis ajouter les variables d'environnement
-   `NEXT_PUBLIC_SUPABASE_URL` et `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (Supabase > Project Settings > API Keys). Déployer.
+2. **Google Cloud Console** (APIs & Services > Credentials) : créer un « OAuth client ID » de type *Web application*.
+   - Authorized redirect URI : `https://<ref>.supabase.co/auth/v1/callback`
+   - Écran de consentement : type *Internal* si tout le monde est sur le même Google Workspace, sinon *External*.
+3. **Supabase > Authentication > Sign In / Providers > Google** : activer, coller le Client ID et le Client Secret.
+4. **Supabase > Authentication > URL Configuration** : `Site URL` = l'URL Vercel, et ajouter l'URL Vercel dans *Redirect URLs*.
+5. **Vercel** : variables `NEXT_PUBLIC_SUPABASE_URL` et `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (type Config), puis redéployer.

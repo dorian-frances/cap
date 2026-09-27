@@ -11,7 +11,9 @@
     "test:db": "node --test supabase/tests/*.test.ts"
   },
   "dependencies": {
+    "@base-ui/react": "^1.8.0",
     "@supabase/supabase-js": "^2.117.2",
+    "lucide-react": "^1.48.0",
     "next": "16.3.6",
     "react": "19.2.8",
     "react-dom": "19.2.8"

@@ -25,6 +25,7 @@ test("seuls les éditeurs accèdent au projet ; le lien de partage suffit pour l
   const { data: person } = await a.c.from("people").insert({ project_id: pid, name: "Alice" }).select().single();
   const { error: e2 } = await a.c.from("items").insert({ project_id: pid, title: "Login", estimate_jh: 3, owner_ids: [person.id] });
   assert.equal(e2, null);
+  await a.c.from("absences").insert({ project_id: pid, person_id: person.id, start_date: "2026-10-01", end_date: "2026-10-01", label: "Médecin" });
 
   // B et anonyme ne voient ni n'écrivent rien
   assert.deepEqual((await b.c.from("projects").select().eq("id", pid)).data, []);
@@ -40,6 +41,8 @@ test("seuls les éditeurs accèdent au projet ; le lien de partage suffit pour l
   assert.equal(shared.project.name, "Projet A");
   assert.equal(shared.project.share_token, undefined);
   assert.equal(shared.items[0].title, "Login");
+  assert.equal(shared.absences.length, 1);
+  assert.equal(shared.absences[0].label, undefined); // le motif reste privé
   assert.equal((await anon.rpc("get_shared_project", { token: crypto.randomUUID() })).data, null);
 
   // A ajoute B comme éditeur -> B accède

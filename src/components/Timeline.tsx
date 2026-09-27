@@ -1,190 +1,285 @@
 "use client";
 
-import { useMemo, useState, type ReactNode } from "react";
+import { useState, type ReactNode, type RefObject } from "react";
+import { ChevronDown, ChevronRight, GripVertical, Plus, TriangleAlert } from "lucide-react";
 import {
-  isLate, orderItems, schedule, toDay, toIso, totalJh,
-  type Absence, type Item, type Person, type Project, type Row, type Span,
+  lateBy, isLate, monday, toDay, toIso, todayIso, totalJh, unplannedReason,
+  type Item, type Person, type Plan, type Row, type Span,
 } from "@/lib/plan";
+import { Avatar, Diamond, STATUS, StatusIcon, fmtDay, personColor } from "./ui";
 
-const PX = 16; // largeur d'un jour
-const ROW = "h-9";
+export type Zoom = "semaine" | "mois" | "trimestre";
+export type PickKind = "status" | "owners" | "estimate" | "milestone";
+export const PX: Record<Zoom, number> = { semaine: 32, mois: 12, trimestre: 5 };
+export const LEFT = 380;
 
-export const fmt = (iso: string) =>
-  new Date(iso + "T00:00:00Z").toLocaleDateString("fr-FR", { day: "numeric", month: "short", timeZone: "UTC" });
-export const initials = (name: string) => name.split(/\s+/).map((w) => w[0]).join("").slice(0, 3).toUpperCase();
-const monday = (d: number) => d - ((new Date(d * 86_400_000).getUTCDay() + 6) % 7);
+/** Échelle de temps : du lundi précédant le début jusqu'à 3 semaines après la dernière date connue. */
+export function axis(zoom: Zoom, startIso: string, dates: string[], fitWidth?: number) {
+  const today = toDay(todayIso());
+  const all = [toDay(startIso), today, ...dates.map(toDay)];
+  const from = monday(Math.min(...all)) - 7;
+  let days = Math.max(monday(Math.max(...all, from + 70)) + 28 - from, 84);
+  // fitWidth : échelle choisie pour remplir une largeur donnée (vue client).
+  const px = fitWidth ? Math.max(4, Math.min(24, Math.floor(fitWidth / days))) : PX[zoom];
+  if (!fitWidth) days = Math.max(days, Math.ceil(1200 / px / 7) * 7); // toujours au moins un écran de large
+  const x = (iso: string) => (toDay(iso) - from) * px;
+  const months: { label: string; left: number }[] = [];
+  for (let d = from; d < from + days; d++) {
+    const iso = toIso(d);
+    if (d === from || iso.endsWith("-01"))
+      months.push({
+        left: (d - from) * px,
+        label: new Date(iso + "T00:00:00Z").toLocaleDateString("fr-FR", { month: zoom === "trimestre" ? "short" : "long", year: iso.endsWith("-01-01") || d === from ? "numeric" : undefined, timeZone: "UTC" }),
+      });
+  }
+  const ticks: { label: string; sub?: string; left: number; width: number }[] = [];
+  if (zoom === "semaine")
+    for (let d = from; d < from + days; d++) {
+      const dt = new Date(d * 86_400_000);
+      ticks.push({ left: (d - from) * px, width: px, label: String(dt.getUTCDate()), sub: "lmmjvsd"[(dt.getUTCDay() + 6) % 7] });
+    }
+  else
+    for (let d = from; d < from + days; d += 7) {
+      const dt = new Date(d * 86_400_000);
+      const week = isoWeek(d);
+      ticks.push({ left: (d - from) * px, width: 7 * px, label: zoom === "mois" ? String(dt.getUTCDate()) : "", sub: `S${week}` });
+    }
+  return { px, from, days, width: days * px, today, x, months, ticks };
+}
+export type Axis = ReturnType<typeof axis>;
 
-const BAR: Record<Item["status"], string> = { todo: "bg-sky-500", doing: "bg-amber-500", done: "bg-emerald-500" };
+function isoWeek(day: number) {
+  const d = new Date(day * 86_400_000);
+  const th = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 3 - ((d.getUTCDay() + 6) % 7)));
+  const jan4 = new Date(Date.UTC(th.getUTCFullYear(), 0, 4));
+  return 1 + Math.round(((th.getTime() - jan4.getTime()) / 86_400_000 - 3 + ((jan4.getUTCDay() + 6) % 7)) / 7);
+}
 
-export type CellCtx = { row: Row; span: Span | null | undefined; late: boolean; jh: number };
+export const weekendBg = (px: number) => ({
+  backgroundImage: `repeating-linear-gradient(90deg, transparent 0 ${5 * px}px, rgba(120,113,108,.055) ${5 * px}px ${7 * px}px)`,
+});
 
-type Props = {
-  project: Project;
-  items: Item[];
-  people: Person[];
-  absences: Absence[];
-  left: number; // largeur de la colonne de gauche (px)
-  itemCell?: (ctx: CellCtx) => ReactNode;
-  personCell?: (p: Person) => ReactNode;
-};
-
-export default function Timeline({ project, items, people, absences, left, itemCell, personCell }: Props) {
-  const [view, setView] = useState<"items" | "people">("items");
-  const rows = useMemo(() => orderItems(items), [items]);
-  const spans = useMemo(
-    () => schedule(items, people, absences, project.start_date),
-    [items, people, absences, project.start_date],
-  );
-
-  const today = toDay(new Date().toISOString().slice(0, 10));
-  const known = [...spans.values()].filter((s): s is Span => !!s);
-  const from = monday(Math.min(toDay(project.start_date), ...known.map((s) => toDay(s.start))));
-  const lastEnd = Math.max(from + 56, today, ...known.map((s) => toDay(s.end)));
-  const days = monday(lastEnd) + 21 - from;
-  const x = (iso: string) => (toDay(iso) - from) * PX;
-  const w = (s: Span) => (toDay(s.end) - toDay(s.start) + 1) * PX;
-  const milestones = rows.filter((r) => r.item.type === "milestone" && r.item.milestone_date);
-
-  const grid = {
-    width: days * PX,
-    backgroundImage: `repeating-linear-gradient(90deg, transparent 0 ${5 * PX}px, #f1f5f9 ${5 * PX}px ${7 * PX}px),
-      repeating-linear-gradient(90deg, #e2e8f0 0 1px, transparent 1px ${7 * PX}px)`,
-  };
-
-  const leafRows = rows.filter((r) => r.item.type === "feature" && !r.hasChildren);
-
+export function AxisHeader({ ax, milestones, items, plan }: { ax: Axis; milestones: Item[]; items: Item[]; plan: Plan }) {
+  const todayLeft = (ax.today - ax.from) * ax.px;
   return (
-    <div className="rounded-lg border border-slate-200 bg-white">
-      <div className="flex gap-1 border-b border-slate-200 p-2 text-sm">
-        {(["items", "people"] as const).map((v) => (
-          <button key={v} onClick={() => setView(v)}
-            className={`rounded px-3 py-1 ${view === v ? "bg-slate-900 text-white" : "hover:bg-slate-100"}`}>
-            {v === "items" ? "Items" : "Équipe"}
-          </button>
-        ))}
-        <span className="ml-auto flex items-center gap-3 px-2 text-xs text-slate-500">
-          <Legend c="bg-sky-500" t="À faire" /><Legend c="bg-amber-500" t="En cours" />
-          <Legend c="bg-emerald-500" t="Fait" /><Legend c="bg-violet-600 rotate-45" t="Jalon" />
-        </span>
-      </div>
-
-      <div className="relative overflow-x-auto">
-        <div className="relative" style={{ width: left + days * PX }}>
-          {/* En-tête : semaines */}
-          <div className="sticky top-0 z-20 flex border-b border-slate-200 bg-white text-xs text-slate-500">
-            <div className="sticky left-0 z-30 shrink-0 bg-white" style={{ width: left }} />
-            {Array.from({ length: days / 7 }, (_, i) => (
-              <div key={i} className="shrink-0 border-l border-slate-200 px-1 py-1" style={{ width: 7 * PX }}>
-                {fmt(toIso(from + i * 7))}
-              </div>
-            ))}
-          </div>
-
-          {view === "items" && rows.map((row) => {
-            const { item, hasChildren } = row;
-            const span = spans.get(item.id);
-            const late = isLate(item, span, items);
-            const jh = totalJh(items, item.id);
-            return (
-              <div key={item.id} className={`flex border-b border-slate-100 ${ROW}`}>
-                <div className="sticky left-0 z-10 flex shrink-0 items-center border-r border-slate-200 bg-white text-sm"
-                  style={{ width: left }}>
-                  {itemCell ? itemCell({ row, span, late, jh }) : (
-                    <ReadOnlyCell row={row} span={span} late={late} jh={jh} people={people} />
-                  )}
-                </div>
-                <div className="relative" style={grid}>
-                  {span && item.type === "milestone" && (
-                    <div title={`${item.title} — ${fmt(span.start)}`}
-                      className="absolute top-2.5 h-4 w-4 rotate-45 bg-violet-600" style={{ left: x(span.start) }} />
-                  )}
-                  {span && item.type === "feature" && (
-                    <div title={`${item.title} — ${fmt(span.start)} → ${fmt(span.end)} · ${jh} JH`}
-                      className={`absolute truncate rounded px-1.5 text-xs leading-6 text-white ${
-                        hasChildren ? "top-3 h-3 bg-slate-700" : `top-1.5 h-6 ${BAR[item.status]}`
-                      } ${late ? "ring-2 ring-red-500 ring-offset-1" : ""}`}
-                      style={{ left: x(span.start), width: w(span) }}>
-                      {!hasChildren && item.title}
-                    </div>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-
-          {view === "people" && people.map((p) => (
-            <div key={p.id} className="flex h-11 border-b border-slate-100">
-              <div className="sticky left-0 z-10 flex shrink-0 items-center gap-2 border-r border-slate-200 bg-white px-3 text-sm"
-                style={{ width: left }}>
-                {personCell ? personCell(p) : (
-                  <><span className="font-medium">{p.name}</span>
-                    <span className="text-slate-500">{Math.round(p.capacity * 100)} %</span></>
-                )}
-              </div>
-              <div className="relative" style={grid}>
-                {absences.filter((a) => a.person_id === p.id).map((a) => (
-                  <div key={a.id} title={`${a.label || "Absence"} — ${fmt(a.start_date)} → ${fmt(a.end_date)}`}
-                    className="absolute inset-y-0 bg-[repeating-linear-gradient(45deg,#cbd5e1_0_2px,transparent_2px_6px)]"
-                    style={{ left: x(a.start_date), width: w({ start: a.start_date, end: a.end_date }) }} />
-                ))}
-                {leafRows.filter((r) => r.item.owner_ids.includes(p.id)).map(({ item }) => {
-                  const span = spans.get(item.id);
-                  return span && (
-                    <div key={item.id} title={`${item.title} — ${fmt(span.start)} → ${fmt(span.end)}`}
-                      className={`absolute top-2 h-7 truncate rounded border border-white px-1.5 text-xs leading-6 text-white ${BAR[item.status]}`}
-                      style={{ left: x(span.start), width: w(span) }}>
-                      {item.title}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
-
-          {view === "people" && !people.length && (
-            <p className="p-4 text-sm text-slate-500">Aucune personne dans l&apos;équipe.</p>
-          )}
-          {view === "items" && !rows.length && <p className="p-4 text-sm text-slate-500">Aucun item.</p>}
-
-          {/* Repères verticaux : aujourd'hui et jalons */}
-          {today >= from && today < from + days && (
-            <div className="pointer-events-none absolute bottom-0 top-0 w-px bg-red-400"
-              style={{ left: left + (today - from) * PX + PX / 2 }} />
-          )}
-          {milestones.map(({ item }) => (
-            <div key={item.id} className="pointer-events-none absolute bottom-0 top-6 border-l border-dashed border-violet-500"
-              style={{ left: left + x(item.milestone_date!) + PX / 2 }} />
-          ))}
+    <div className="relative h-14 shrink-0 text-[11px] text-stone-500" style={{ width: ax.width }}>
+      {ax.months.map((m) => (
+        <div key={m.left} className="absolute top-0 h-7 whitespace-nowrap border-l border-stone-200/70 pl-2 font-medium capitalize leading-7 text-stone-600" style={{ left: m.left }}>
+          {m.label}
         </div>
+      ))}
+      {ax.ticks.map((t) => (
+        <div key={t.left} className="absolute top-7 h-7 whitespace-nowrap border-l border-stone-100 leading-7" style={{ left: t.left, width: t.width, paddingLeft: ax.px >= 12 ? 6 : 3 }}>
+          {t.sub && <span className="text-stone-300">{t.sub}</span>} {t.label}
+        </div>
+      ))}
+      <div className="absolute top-[31px] flex h-[18px] min-w-[18px] -translate-x-1/2 items-center justify-center rounded-full bg-indigo-600 px-1 text-[11px] font-medium text-white"
+        style={{ left: todayLeft + ax.px / 2 }} title="Aujourd'hui">
+        {new Date(ax.today * 86_400_000).getUTCDate()}
       </div>
+      {milestones.filter((m) => m.milestone_date).map((m) => {
+        const late = items.some((i) => i.target_id === m.id && lateBy(i, plan.spans.get(i.id), items) > 0);
+        return (
+          <div key={m.id} title={`${m.title} · ${fmtDay(m.milestone_date!)}`}
+            className={`absolute top-[5px] flex h-[18px] items-center gap-1 whitespace-nowrap rounded-[5px] pl-1 pr-1.5 text-[11px] font-medium ${late ? "bg-red-50 text-red-700" : "bg-stone-100 text-stone-700"}`}
+            style={{ left: ax.x(m.milestone_date!) + ax.px / 2 - 6 }}>
+            <Diamond late={late} />{m.title}
+          </div>
+        );
+      })}
     </div>
   );
 }
 
-function Legend({ c, t }: { c: string; t: string }) {
-  return <span className="flex items-center gap-1"><span className={`inline-block h-2.5 w-2.5 rounded-sm ${c}`} />{t}</span>;
-}
-
-export function EndLabel({ span, item, late }: { span: Span | null | undefined; item: Item; late: boolean }) {
-  if (span) return <span className={late ? "font-medium text-red-600" : "text-slate-600"}>{fmt(span.end)}{late && " ⚠"}</span>;
-  return <span className="text-amber-600" title={item.type === "milestone" ? "Pas de date" : "Pas d'owner ou pas de capacité"}>
-    non planifié</span>;
-}
-
-function ReadOnlyCell({ row, span, late, jh, people }: CellCtx & { people: Person[] }) {
-  const { item, depth } = row;
-  const owners = people.filter((p) => item.owner_ids.includes(p.id));
+/** Lignes verticales : aujourd'hui + jalons, sur toute la hauteur. */
+export function AxisLines({ ax, milestones, left, items, plan }: { ax: Axis; milestones: Item[]; left: number; items: Item[]; plan: Plan }) {
   return (
-    <div className="flex w-full items-center gap-2 px-3">
-      <span className={`flex-1 truncate ${row.hasChildren ? "font-semibold" : ""} ${item.type === "milestone" ? "text-violet-700" : ""}`}
-        style={{ paddingLeft: depth * 16 }}>
-        {item.type === "milestone" && "◆ "}{item.title || "Sans titre"}
-      </span>
-      {item.type === "feature" && <span className="w-12 text-right text-slate-500">{jh} JH</span>}
-      <span className="w-16 truncate text-xs text-slate-500" title={owners.map((o) => o.name).join(", ")}>
-        {!row.hasChildren && owners.map((o) => initials(o.name)).join(" ")}
-      </span>
-      <span className="w-20 text-right text-xs"><EndLabel span={span} item={item} late={late} /></span>
+    <>
+      <div className="pointer-events-none absolute bottom-0 top-0 z-[1] w-px bg-indigo-500/70" style={{ left: left + (ax.today - ax.from) * ax.px + ax.px / 2 }} />
+      {milestones.filter((m) => m.milestone_date).map((m) => {
+        const late = items.some((i) => i.target_id === m.id && lateBy(i, plan.spans.get(i.id), items) > 0);
+        return <div key={m.id} className={`pointer-events-none absolute bottom-0 top-0 z-[1] border-l border-dashed ${late ? "border-red-400" : "border-stone-300"}`}
+          style={{ left: left + ax.x(m.milestone_date!) + ax.px / 2 }} />;
+      })}
+    </>
+  );
+}
+
+type Props = {
+  items: Item[];
+  people: Person[];
+  plan: Plan;
+  rows: Row[];
+  ax: Axis;
+  colorBy: "status" | "owner";
+  selected: Set<string>;
+  renaming: string | null;
+  collapsed: Set<string>;
+  scrollRef: RefObject<HTMLDivElement | null>;
+  header: ReactNode;
+  footer?: ReactNode;
+  onRowClick: (id: string, e: React.MouseEvent) => void;
+  onContext: (id: string) => void;
+  onPick: (kind: PickKind, id: string, anchor: Element) => void;
+  onRename: (id: string, title: string | null) => void;
+  onStartRename: (id: string) => void;
+  onToggle: (id: string) => void;
+  onAddChild: (id: string) => void;
+  onDrop: (dragId: string, targetId: string, where: "before" | "after") => void;
+};
+
+export default function Timeline({ scrollRef, ...p }: Props) {
+  const { items, people, plan, ax } = p;
+  const [drop, setDrop] = useState<{ id: string; where: "before" | "after" } | null>(null);
+  const [dragId, setDragId] = useState<string | null>(null);
+  const milestones = items.filter((i) => i.type === "milestone");
+
+  const bar = (item: Item, span: Span, hasChildren: boolean, selected: boolean) => {
+    const left = ax.x(span.start);
+    const width = ax.x(span.end) - left + ax.px;
+    const jh = totalJh(items, item.id);
+    const title = `${item.title || "Sans titre"} · ${fmtDay(span.start)} → ${fmtDay(span.end)} · ${jh} j`;
+    if (hasChildren) {
+      const closed = p.collapsed.has(item.id);
+      return <div title={title} className="absolute rounded-[3px]"
+        style={{ left, width, top: closed ? 12 : 13, height: closed ? 8 : 6, background: closed ? "#8a847e" : "#b9b3ad", boxShadow: selected ? "0 0 0 2px #5b5bd6" : undefined }} />;
+    }
+    const target = items.find((i) => i.id === item.target_id);
+    const late = lateBy(item, span, items) > 0;
+    const [bg, border, color] = p.colorBy === "owner" && item.owner_ids[0]
+      ? [personColor(item.owner_ids[0])[0], "rgba(28,25,23,.08)", personColor(item.owner_ids[0])[1]]
+      : [STATUS[item.status].bar, STATUS[item.status].border, STATUS[item.status].text];
+    const inside = width >= 64;
+    const ovLeft = late ? ax.x(target!.milestone_date!) + ax.px : 0;
+    return (
+      <>
+        <div title={title} className="absolute top-1.5 h-5 truncate rounded-[5px] px-2 text-xs font-medium leading-5"
+          style={{ left, width, background: bg, color, boxShadow: `inset 0 0 0 1px ${border}${selected ? ", 0 0 0 2px #5b5bd6" : ""}`, opacity: item.status === "done" ? 0.75 : 1 }}>
+          {inside && (item.title || "Sans titre")}
+        </div>
+        {late && (
+          <div className="pointer-events-none absolute top-1.5 h-5 rounded-r-[5px]"
+            style={{ left: ovLeft, width: left + width - ovLeft, background: "repeating-linear-gradient(135deg,rgba(220,38,38,.30) 0 2px,rgba(253,236,236,.95) 2px 5px)", boxShadow: "inset 0 0 0 1px #f0a8a8" }} />
+        )}
+        {!inside && <span className="pointer-events-none absolute top-1.5 whitespace-nowrap text-xs leading-5 text-stone-500" style={{ left: left + width + 6 }}>{item.title || "Sans titre"}</span>}
+      </>
+    );
+  };
+
+  const rowEl = ({ item, depth, hasChildren }: Row) => {
+    const sel = p.selected.has(item.id);
+    const span = plan.spans.get(item.id);
+    const late = hasChildren ? isLate(item, plan, items) : lateBy(item, span, items) > 0;
+    const owners = people.filter((o) => item.owner_ids.includes(o.id));
+    const rowBg = sel ? "bg-indigo-50/70" : "hover:bg-stone-50";
+    const hint = drop?.id === item.id ? (drop.where === "before" ? "shadow-[inset_0_2px_0_#5b5bd6]" : "shadow-[inset_0_-2px_0_#5b5bd6]") : "";
+    return (
+      <div key={item.id} data-row={item.id} role="row" aria-selected={sel}
+        className={`group flex h-8 select-none ${rowBg} ${hint}`}
+        onClick={(e) => p.onRowClick(item.id, e)}
+        onContextMenu={() => p.onContext(item.id)}
+        onDragOver={(e) => {
+          if (!dragId || dragId === item.id) return;
+          e.preventDefault();
+          const r = e.currentTarget.getBoundingClientRect();
+          setDrop({ id: item.id, where: e.clientY < r.top + r.height / 2 ? "before" : "after" });
+        }}
+        onDragLeave={() => setDrop((d) => (d?.id === item.id ? null : d))}
+        onDrop={(e) => { e.preventDefault(); if (dragId && drop) p.onDrop(dragId, drop.id, drop.where); setDrop(null); setDragId(null); }}>
+        <div className={`sticky left-0 z-10 flex shrink-0 items-center gap-1.5 border-r border-stone-100 pr-3 ${sel ? "bg-[#f3f3fc]" : "bg-white group-hover:bg-stone-50"}`} style={{ width: LEFT }}>
+          <span draggable aria-label="Déplacer" title="Glisser pour réordonner"
+            onDragStart={(e) => { setDragId(item.id); e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", item.id); }}
+            onDragEnd={() => { setDragId(null); setDrop(null); }}
+            className="flex w-7 shrink-0 cursor-grab justify-center text-stone-400 opacity-0 group-hover:opacity-100 pointer-coarse:opacity-40">
+            <GripVertical size={14} />
+          </span>
+          <span className="shrink-0" style={{ width: depth * 18 }} />
+          {hasChildren ? (
+            <button aria-label={p.collapsed.has(item.id) ? "Déplier" : "Replier"} onClick={(e) => { e.stopPropagation(); p.onToggle(item.id); }}
+              className="flex size-4 shrink-0 items-center justify-center rounded text-stone-500 hover:bg-stone-200">
+              {p.collapsed.has(item.id) ? <ChevronRight size={13} /> : <ChevronDown size={13} />}
+            </button>
+          ) : (
+            <button data-cell="status" aria-label={`Statut : ${STATUS[item.status].label}`}
+              onClick={(e) => { e.stopPropagation(); p.onPick("status", item.id, e.currentTarget); }}
+              className="flex size-4 shrink-0 items-center justify-center rounded-full hover:ring-2 hover:ring-stone-200">
+              <StatusIcon status={item.status} />
+            </button>
+          )}
+          {p.renaming === item.id ? (
+            <input autoFocus defaultValue={item.title} aria-label="Titre" placeholder="Titre de l'item"
+              onClick={(e) => e.stopPropagation()}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") p.onRename(item.id, e.currentTarget.value);
+                if (e.key === "Escape") p.onRename(item.id, null);
+                e.stopPropagation();
+              }}
+              onBlur={(e) => p.onRename(item.id, e.currentTarget.value)}
+              className="h-6 min-w-0 flex-1 rounded border border-indigo-400 bg-white px-1.5 text-[13px] outline-none ring-2 ring-indigo-100" />
+          ) : (
+            <span data-cell="title" onDoubleClick={() => p.onStartRename(item.id)}
+              className={`min-w-0 truncate text-[13px] ${hasChildren ? "font-semibold" : ""} ${item.title ? "" : "text-stone-400"}`}>
+              {item.title || "Sans titre"}
+            </span>
+          )}
+          {late && <TriangleAlert size={13} className="shrink-0 text-red-600" aria-label="Après son jalon" />}
+          <span className="flex-1" />
+          <button aria-label="Ajouter un sous-item" title="Ajouter un sous-item"
+            onClick={(e) => { e.stopPropagation(); p.onAddChild(item.id); }}
+            className="flex size-[22px] shrink-0 items-center justify-center rounded-[5px] text-stone-500 opacity-0 hover:bg-stone-200 focus-visible:opacity-100 group-hover:opacity-100 pointer-coarse:opacity-40">
+            <Plus size={14} />
+          </button>
+          {hasChildren ? (
+            <span className="w-11 shrink-0 text-right text-xs tabular-nums text-stone-400">Σ {totalJh(items, item.id)} j</span>
+          ) : (
+            <button data-cell="estimate" aria-label="Estimation" onClick={(e) => { e.stopPropagation(); p.onPick("estimate", item.id, e.currentTarget); }}
+              className={`h-6 w-11 shrink-0 rounded px-1 text-right text-xs tabular-nums hover:bg-stone-200/70 ${Number(item.estimate_jh) ? "text-stone-500" : "text-stone-300"}`}>
+              {Number(item.estimate_jh) ? `${Number(item.estimate_jh).toLocaleString("fr-FR")} j` : "– j"}
+            </button>
+          )}
+          {hasChildren ? (
+            <span className="flex w-14 shrink-0 justify-end">
+              {[...new Set(items.filter((c) => c.parent_id === item.id).flatMap((c) => c.owner_ids))].slice(0, 3)
+                .map((o) => people.find((x) => x.id === o)).filter(Boolean)
+                .map((o, i) => <span key={o!.id} style={{ marginLeft: i ? -5 : 0 }} className="opacity-60"><Avatar person={o!} ring={sel ? "#f3f3fc" : "#fff"} /></span>)}
+            </span>
+          ) : (
+            <button data-cell="owners" aria-label="Owners" onClick={(e) => { e.stopPropagation(); p.onPick("owners", item.id, e.currentTarget); }}
+              className="flex h-6 w-14 shrink-0 items-center justify-end rounded px-0.5 hover:bg-stone-200/70">
+              {owners.length ? owners.slice(0, 3).map((o, i) => (
+                <span key={o.id} style={{ marginLeft: i ? -5 : 0 }}><Avatar person={o} ring={sel ? "#f3f3fc" : "#fff"} /></span>
+              )) : <span className="flex size-5 items-center justify-center rounded-full border border-dashed border-stone-300 text-[10px] text-stone-400">+</span>}
+              {owners.length > 3 && <span className="ml-0.5 text-[11px] text-stone-400">+{owners.length - 3}</span>}
+            </button>
+          )}
+        </div>
+        <div className="relative shrink-0" style={{ width: ax.width, ...weekendBg(ax.px) }} onClick={(e) => e.stopPropagation()}>
+          <div className="absolute inset-0" onClick={(e) => p.onRowClick(item.id, e)} />
+          {span && <div onClick={(e) => p.onRowClick(item.id, e)} className="cursor-pointer">{bar(item, span, hasChildren, sel)}</div>}
+          {!span && (
+            <span className="pointer-events-none absolute top-1.5 whitespace-nowrap rounded-[5px] border border-dashed border-amber-300 bg-amber-50/60 px-2 text-xs leading-[18px] text-amber-800"
+              style={{ left: (ax.today - ax.from) * ax.px + 8 }}>
+              À planifier · {hasChildren ? "aucun sous-item planifiable" : unplannedReason(item, people).toLowerCase()}
+            </span>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div ref={scrollRef} className="relative min-h-0 flex-1 overflow-auto" role="grid" aria-label="Timeline des items">
+      <div className="relative min-h-full" style={{ width: LEFT + ax.width }}>
+        <div className="sticky top-0 z-20 flex border-b border-stone-200/80 bg-white">
+          <div className="sticky left-0 z-30 flex shrink-0 flex-col justify-center border-r border-stone-100 bg-white pl-5 pr-3" style={{ width: LEFT }}>
+            {p.header}
+          </div>
+          <AxisHeader ax={ax} milestones={milestones} items={items} plan={plan} />
+        </div>
+        {p.rows.map((r) => rowEl(r))}
+        {p.footer}
+        <AxisLines ax={ax} milestones={milestones} left={LEFT} items={items} plan={plan} />
+      </div>
     </div>
   );
 }
