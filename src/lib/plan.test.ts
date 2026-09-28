@@ -1,7 +1,7 @@
 // node --test src/lib/plan.test.ts
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { schedule as run, allocationOn, itemOverload, pauses, startBefore, overloaded, weekOverload, isLate, lateBy, overdue, slip, totalJh, unplannedReason, weekLoad, absentSet, toDay, type Item } from "./plan.ts";
+import { schedule as run, allocationOn, itemOverload, pauses, startBefore, overloaded, weekOverload, isLate, lateBy, overdue, slip, totalJh, activeTags, unplannedReason, weekLoad, absentSet, toDay, type Item } from "./plan.ts";
 
 const MON = "2026-09-28"; // lundi
 const A = { id: "a", name: "A", capacity: 1 };
@@ -279,4 +279,12 @@ test("pause : périodes à 0 % pour tous les owners, découpées sur la barre", 
   // Une personne encore à 20 % : pas en pause
   const y = item({ ...x, owner_ids: ["a", "b"], allocations: [{ from: "2026-09-10", pct: 0, person: "a" }] });
   assert.deepEqual(pauses(y, span), []);
+});
+
+test("tags actifs : non levés, ceux des descendants pour un parent", () => {
+  const e = (id: string, tag: "risk" | "blocked", lifted_on?: string) => ({ id, tag, reason: "", on: MON, lifted_on });
+  const p = item({});
+  const q = item({ parent_id: p.id });
+  const items = [p, q, item({ parent_id: p.id, tag_log: [e("1", "risk"), e("2", "blocked", MON)] }), item({ parent_id: q.id, tag_log: [e("3", "blocked")] })];
+  assert.deepEqual(activeTags(items, p.id).map((x) => x.id).sort(), ["1", "3"]);
 });

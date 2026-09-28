@@ -7,6 +7,9 @@ export type Person = { id: string; name: string; capacity: number; defect_share?
 export const planCapacity = (p: Person) => Number(p.capacity) * (1 - Number(p.defect_share ?? 0));
 export type Absence = { id: string; person_id: string; start_date: string; end_date: string; label?: string };
 export type Status = "todo" | "doing" | "done";
+export type Tag = "risk" | "dependency" | "blocked";
+/** Pose d'un tag, avec sa raison ; actif tant qu'il n'est pas levé. `by` : email de l'auteur. */
+export type TagEntry = { id: string; tag: Tag; reason: string; on: string; by?: string; lifted_on?: string | null; lifted_by?: string };
 export type Item = {
   id: string;
   parent_id: string | null;
@@ -24,6 +27,7 @@ export type Item = {
   allocations?: Allocation[]; // part du temps de ses owners, datée ; 100 % sans entrée
   extra_jh?: number; // avenant : retard anticipé, JH ajoutés à l'estimation sans changer la fin prévue
   extra_note?: string; // motif de l'avenant
+  tag_log?: TagEntry[]; // historique des tags, indicateurs sur la timeline sans effet sur le calcul
 };
 
 /** JH à réaliser : estimation + avenant. */
@@ -362,6 +366,15 @@ export function totalJh(items: Item[], id: string): number {
   const kids = items.filter((i) => i.parent_id === id && i.type === "feature");
   if (!kids.length) return Number(items.find((i) => i.id === id)?.estimate_jh ?? 0);
   return kids.reduce((s, k) => s + totalJh(items, k.id), 0);
+}
+
+/** Tags actifs (non levés) d'un Item seul. */
+export const openTags = (i: Item) => (i.tag_log ?? []).filter((e) => !e.lifted_on);
+
+/** Tags actifs d'un Item et de tous ses descendants (un risque reste visible, parent replié). */
+export function activeTags(items: Item[], id: string): TagEntry[] {
+  const self = items.find((i) => i.id === id);
+  return [...(self ? openTags(self) : []), ...items.filter((i) => i.parent_id === id && i.type === "feature").flatMap((k) => activeTags(items, k.id))];
 }
 
 /** Jours ouvrés entre la date du jalon cible et la fin de l'Item (0 = à l'heure). */

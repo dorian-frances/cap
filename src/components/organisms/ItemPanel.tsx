@@ -1,22 +1,24 @@
 "use client";
 
-import { ArrowRight, CalendarCheck, CalendarDays, ChevronRight, CircleSlash, Clock, Divide, Link2, Play, Trash2, TriangleAlert, X } from "lucide-react";
+import { ArrowRight, CalendarCheck, CalendarDays, Check, ChevronRight, CircleSlash, Clock, Divide, Link2, Play, Plus, Trash2, TriangleAlert, X } from "lucide-react";
 import {
   absentSet, allocationOn, itemOverload, isWeekend, pctLabel, toIso, lateBy, overdue, slip, toDay, todayIso, totalJh, unplannedReason, workJh, workingDays, fmtDay,
-  type Item, type Plan,
+  type Item, type Plan, type TagEntry,
 } from "@/lib/plan";
 import type { Data, Store } from "@/lib/store";
+import { cx } from "@/lib/cx";
 import type { PickKind } from "./Timeline";
 import { Avatar, Button, Chip, Diamond, InlineTextarea, Kbd, StatusIcon, Textarea } from "../atoms";
-import { IconButton, SectionTitle, SidePanel, SidePanelBody } from "../molecules";
+import { IconButton, SectionTitle, SidePanel, SidePanelBody, toasts } from "../molecules";
 import AllocationControl, { withAllocation } from "./AllocationControl";
-import { STATUS } from "../tokens";
+import { STATUS, TAGS } from "../tokens";
 
 type Props = {
   item: Item;
   data: Data;
   plan: Plan;
   store: Store;
+  me: string;
   closing?: boolean;
   onClose: () => void;
   onOpen: (id: string) => void;
@@ -24,7 +26,7 @@ type Props = {
   onMoveUp: () => void;
 };
 
-export default function ItemPanel({ item, data, plan, store, closing, onClose, onOpen, onPick, onMoveUp }: Props) {
+export default function ItemPanel({ item, data, plan, store, me, closing, onClose, onOpen, onPick, onMoveUp }: Props) {
   const { items, people, absences } = data;
   const span = plan.spans.get(item.id);
   const kids = items.filter((i) => i.parent_id === item.id && i.type === "feature").sort((a, b) => a.position - b.position);
@@ -46,6 +48,16 @@ export default function ItemPanel({ item, data, plan, store, closing, onClose, o
     return { o, ov, mine, defect, others, fit };
   }).filter((x) => x.o);
   const reduced = (item.allocations ?? []).filter((a) => a.pct < 1 && span && a.from <= span.end).sort((a, b) => a.from.localeCompare(b.from))[0];
+  // Historique des tags : actifs d'abord, puis levés ; les plus récents en haut.
+  const log = [...(item.tag_log ?? [])].sort((a, b) => Number(!!a.lifted_on) - Number(!!b.lifted_on) || (b.lifted_on ?? b.on).localeCompare(a.lifted_on ?? a.on));
+  const setLog = (next: TagEntry[]) => store.updateItems([item.id], { tag_log: next });
+  const lift = (e: TagEntry) => setLog((item.tag_log ?? []).map((x) => (x.id === e.id ? { ...x, lifted_on: today, lifted_by: me } : x)));
+  const removeEntry = (e: TagEntry) => {
+    const prev = item.tag_log ?? [];
+    setLog(prev.filter((x) => x.id !== e.id));
+    const tid = toasts.add({ title: `Tag « ${TAGS[e.tag].label} » supprimé`, timeout: 8000, actionProps: { children: "Annuler", onClick: () => { toasts.close(tid); setLog(prev); } } });
+  };
+  const who = (email?: string) => (email ? ` par ${email.split("@")[0]}` : "");
   const crumbs: Item[] = [];
   for (let p = items.find((i) => i.id === item.parent_id); p; p = items.find((i) => i.id === p!.parent_id)) crumbs.unshift(p);
 
@@ -174,6 +186,33 @@ export default function ItemPanel({ item, data, plan, store, closing, onClose, o
             </Chip>
           </div>
         </div>
+
+        <section className="flex flex-col gap-1.5">
+          <div className="flex items-center justify-between">
+            <SectionTitle>Tags</SectionTitle>
+            <Button size="sm" variant="ghost" onClick={(e) => onPick("tags", e.currentTarget)}><Plus size={12} />Poser un tag</Button>
+          </div>
+          {log.length > 0 && (
+            <ul className="flex flex-col gap-2">
+              {log.map((e) => {
+                const { label, Icon, cls } = TAGS[e.tag];
+                return (
+                  <li key={e.id} className={cx("flex animate-fade-in items-start gap-2.5 text-[13px]", e.lifted_on ? "text-stone-400" : "text-stone-700")}>
+                    <span className={cx("mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-[4px]", e.lifted_on ? "bg-stone-100 text-stone-400" : cls)}><Icon size={10} strokeWidth={2.5} /></span>
+                    <div className="min-w-0 flex-1">
+                      <div><span className="font-medium">{label}</span>{e.reason && <> · {e.reason}</>}</div>
+                      <div className="text-xs text-stone-400">
+                        Posé le {fmtDay(e.on)}{who(e.by)}{e.lifted_on && <> · <Check size={11} className="inline" /> levé le {fmtDay(e.lifted_on)}{who(e.lifted_by)}</>}
+                      </div>
+                    </div>
+                    {!e.lifted_on && <IconButton size="sm" label="Lever le tag" onClick={() => lift(e)}><Check size={14} /></IconButton>}
+                    <IconButton size="sm" label="Supprimer (erreur de saisie)" onClick={() => removeEntry(e)}><Trash2 size={13} /></IconButton>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </section>
 
         {behind && (
           <div className="flex animate-rise-in flex-col gap-2 rounded-lg border border-amber-200/70 bg-amber-50/70 px-3.5 py-3 text-[13px]">

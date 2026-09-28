@@ -58,11 +58,17 @@ export function GanttBar({ ax, span, label, tone, lateFrom, pauses = [], top, he
   );
 }
 
-/** Barre fine d'un item parent : l'enveloppe de ses sous-items. */
-export function SummaryBar({ ax, span, collapsed, selected, title }: { ax: Axis; span: Span; collapsed: boolean; selected?: boolean; title?: string }) {
+/** Barre fine d'un item parent : l'enveloppe de ses sous-items. Repliée, son libellé s'affiche à droite (les sous-items ne sont plus visibles). */
+export function SummaryBar({ ax, span, collapsed, selected, title, label }: { ax: Axis; span: Span; collapsed: boolean; selected?: boolean; title?: string; label?: string }) {
   const left = ax.x(span.start);
+  const width = ax.x(span.end) - left + ax.px;
   return (
-    <div title={title} className={cx("absolute rounded-[3px]", motion)}
-      style={{ left, width: ax.x(span.end) - left + ax.px, top: collapsed ? 12 : 13, height: collapsed ? 8 : 6, background: collapsed ? "var(--color-stone-500)" : "var(--color-stone-400)", boxShadow: selected ? `0 0 0 2px ${ACCENT}` : undefined }} />
+    <>
+      <div title={title} className={cx("absolute rounded-[3px]", motion)}
+        style={{ left, width, top: collapsed ? 12 : 13, height: collapsed ? 8 : 6, background: collapsed ? "var(--color-stone-500)" : "var(--color-stone-400)", boxShadow: selected ? `0 0 0 2px ${ACCENT}` : undefined }} />
+      {collapsed && label && (
+        <span className={cx("pointer-events-none absolute whitespace-nowrap text-xs font-medium text-stone-600", motion)} style={{ left: left + width + 6, top: 6, lineHeight: "20px" }}>{label}</span>
+      )}
+    </>
   );
 }
