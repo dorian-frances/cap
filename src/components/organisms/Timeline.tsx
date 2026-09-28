@@ -3,8 +3,8 @@
 import { useEffect, useState, type CSSProperties, type ReactNode, type RefObject } from "react";
 import { GripVertical, Pause, Plus, TriangleAlert } from "lucide-react";
 import {
-  activeTags, allocationOn, itemOverload, pauses, pctLabel, workJh, lateBy, isLate, overdue, slip, todayIso, totalJh, unplannedReason, fmtDay,
-  type Item, type Person, type Plan, type Row,
+  activeTags, openTags, allocationOn, itemOverload, pauses, pctLabel, workJh, lateBy, isLate, overdue, slip, todayIso, totalJh, unplannedReason, fmtDay,
+  type Item, type Person, type Plan, type Row, type Tag,
 } from "@/lib/plan";
 import type { Axis } from "@/lib/axis";
 import { cx } from "@/lib/cx";
@@ -43,6 +43,9 @@ type Props = {
   onDrop: (dragId: string, targetId: string, where: "before" | "after") => void;
 };
 
+// Parent replié : barre pleine comme un item, en gris foncé pour le distinguer.
+const PARENT = { bar: "var(--color-stone-500)", border: "transparent", text: "var(--color-surface)" };
+
 const cellBtn = "flex h-6 shrink-0 items-center rounded px-1 transition-colors duration-100 hover:bg-stone-200/70";
 
 export default function Timeline({ scrollRef, ...p }: Props) {
@@ -66,7 +69,8 @@ export default function Timeline({ scrollRef, ...p }: Props) {
   const bar = (item: Item, hasChildren: boolean, selected: boolean) => {
     const span = plan.spans.get(item.id)!;
     const title = `${item.title || "Sans titre"} · ${fmtDay(span.start)} → ${fmtDay(span.end)} · ${totalJh(items, item.id)} j`;
-    if (hasChildren) return <SummaryBar ax={ax} span={span} collapsed={p.collapsed.has(item.id)} selected={selected} title={title} label={item.title || "Sans titre"} />;
+    if (hasChildren && !p.collapsed.has(item.id)) return <SummaryBar ax={ax} span={span} selected={selected} title={title} />;
+    if (hasChildren) return <GanttBar ax={ax} span={span} label={item.title || "Sans titre"} tone={PARENT} top={6} height={20} selected={selected} title={title} />;
     const owner = p.colorBy === "owner" ? people.find((o) => o.id === item.owner_ids[0]) : undefined;
     const tone = owner
       ? { bar: personColor(owner)[0], border: "color-mix(in srgb, currentColor 10%, transparent)", text: personColor(owner)[1] }
@@ -90,9 +94,13 @@ export default function Timeline({ scrollRef, ...p }: Props) {
     const owners = people.filter((o) => item.owner_ids.includes(o.id));
     const over = hasChildren || item.status === "done" ? [] : [...itemOverload(plan, item)].map(([id, ov]) => ({ o: people.find((x) => x.id === id), ov }));
     const ring = sel ? "var(--color-accent-50)" : "var(--color-surface)";
+    // Ligne teintée par le tag actif le plus grave (un parent déplié ne reprend pas ceux de ses sous-items, visibles en dessous).
+    const tags = hasChildren && !p.collapsed.has(item.id) ? openTags(item) : activeTags(items, item.id);
+    const tag = (Object.keys(TAGS) as Tag[]).find((t) => tags.some((e) => e.tag === t));
+    const tint = tag && !sel ? { background: `color-mix(in srgb, ${TAGS[tag].tone} 9%, var(--color-surface))` } : undefined;
     const hint = drop?.id === item.id ? (drop.where === "before" ? "shadow-[inset_0_2px_0_var(--color-accent-600)]" : "shadow-[inset_0_-2px_0_var(--color-accent-600)]") : "";
     return (
-      <div key={inGroup ? `u-${item.id}` : item.id} data-row={item.id} role="row" aria-selected={sel}
+      <div key={inGroup ? `u-${item.id}` : item.id} data-row={item.id} role="row" aria-selected={sel} style={tint}
         className={cx("group flex h-8 select-none transition-[background-color,opacity] duration-150 starting:opacity-0", sel ? "bg-accent-50/70" : "hover:bg-stone-50", hint, dragId === item.id && "opacity-50")}
         onClick={(e) => p.onRowClick(item.id, e)}
         onContextMenu={() => p.onContext(item.id)}
@@ -104,7 +112,8 @@ export default function Timeline({ scrollRef, ...p }: Props) {
         }}
         onDragLeave={() => setDrop((d) => (d?.id === item.id ? null : d))}
         onDrop={(e) => { e.preventDefault(); if (dragId && drop) p.onDrop(dragId, drop.id, drop.where); setDrop(null); setDragId(null); }}>
-        <div className={cx("sticky left-0 z-10 flex shrink-0 items-center gap-1.5 border-r border-stone-100 pr-3 transition-colors duration-150", sel ? "bg-accent-50" : "bg-surface group-hover:bg-stone-50")} style={{ width: "var(--left)" }}>
+        <div className={cx("sticky left-0 z-10 flex shrink-0 items-center gap-1.5 border-r border-stone-100 pr-3 transition-colors duration-150", sel ? "bg-accent-50" : "bg-surface group-hover:bg-stone-50")}
+          style={{ width: "var(--left)", ...tint, boxShadow: tag ? `inset 3px 0 0 ${TAGS[tag].tone}` : undefined }}>
           <span draggable aria-label="Déplacer" title="Glisser pour réordonner"
             onDragStart={(e) => { setDragId(item.id); e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", item.id); }}
             onDragEnd={() => { setDragId(null); setDrop(null); }}

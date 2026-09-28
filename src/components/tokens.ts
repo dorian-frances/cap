@@ -9,10 +9,11 @@ export const STATUS: Record<Status, { label: string; bar: string; border: string
 };
 
 // Ordre d'affichage : du plus grave au moins grave.
-export const TAGS: Record<Tag, { label: string; hint: string; Icon: LucideIcon; cls: string }> = {
-  blocked: { label: "Bloqué", hint: "Ne peut pas avancer", Icon: Ban, cls: "bg-red-50 text-red-700" },
-  risk: { label: "À risque", hint: "Incertitude à surveiller", Icon: Flame, cls: "bg-amber-100 text-amber-800" },
-  dependency: { label: "Dépendance", hint: "Attend une équipe, un client ou une API externe", Icon: Link, cls: "bg-(--p4-bg) text-(--p4-fg)" },
+// Ordre = priorité : la ligne d'un item prend la couleur (`tone`) de son premier tag actif.
+export const TAGS: Record<Tag, { label: string; hint: string; Icon: LucideIcon; cls: string; tone: string }> = {
+  blocked: { label: "Bloqué", hint: "Ne peut pas avancer", Icon: Ban, cls: "bg-red-50 text-red-700", tone: "var(--color-red-600)" },
+  risk: { label: "À risque", hint: "Incertitude à surveiller", Icon: Flame, cls: "bg-amber-100 text-amber-800", tone: "var(--color-amber-600)" },
+  dependency: { label: "Dépendance", hint: "Attend une équipe, un client ou une API externe", Icon: Link, cls: "bg-(--p4-bg) text-(--p4-fg)", tone: "var(--p4-fg)" },
 };
 
 export const ACCENT = "var(--color-accent-600)";
