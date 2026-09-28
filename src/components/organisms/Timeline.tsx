@@ -3,18 +3,18 @@
 import { useEffect, useState, type CSSProperties, type ReactNode, type RefObject } from "react";
 import { GripVertical, Pause, Plus, TriangleAlert } from "lucide-react";
 import {
-  allocationOn, itemOverload, pauses, pctLabel, workJh, lateBy, isLate, overdue, slip, todayIso, totalJh, unplannedReason, fmtDay,
+  activeTags, allocationOn, itemOverload, pauses, pctLabel, workJh, lateBy, isLate, overdue, slip, todayIso, totalJh, unplannedReason, fmtDay,
   type Item, type Person, type Plan, type Row,
 } from "@/lib/plan";
 import type { Axis } from "@/lib/axis";
 import { cx } from "@/lib/cx";
 import { AvatarStack, AxisHeader, AxisLines, GanttBar, SummaryBar, weekendBg } from "../molecules";
 import { Chevron, StatusIcon } from "../atoms";
-import { STATUS, personColor } from "../tokens";
+import { STATUS, TAGS, personColor } from "../tokens";
 
 // start / done : date de démarrage ou de fin, demandée après le choix du statut.
 // extra : avenant (retard anticipé en JH).
-export type PickKind = "status" | "owners" | "estimate" | "extra" | "milestone" | "start" | "done";
+export type PickKind = "status" | "owners" | "estimate" | "extra" | "milestone" | "start" | "done" | "tags";
 export const LEFT = 380; // largeur par défaut de la colonne des titres, redimensionnable
 
 type Props = {
@@ -66,7 +66,7 @@ export default function Timeline({ scrollRef, ...p }: Props) {
   const bar = (item: Item, hasChildren: boolean, selected: boolean) => {
     const span = plan.spans.get(item.id)!;
     const title = `${item.title || "Sans titre"} · ${fmtDay(span.start)} → ${fmtDay(span.end)} · ${totalJh(items, item.id)} j`;
-    if (hasChildren) return <SummaryBar ax={ax} span={span} collapsed={p.collapsed.has(item.id)} selected={selected} title={title} />;
+    if (hasChildren) return <SummaryBar ax={ax} span={span} collapsed={p.collapsed.has(item.id)} selected={selected} title={title} label={item.title || "Sans titre"} />;
     const owner = p.colorBy === "owner" ? people.find((o) => o.id === item.owner_ids[0]) : undefined;
     const tone = owner
       ? { bar: personColor(owner)[0], border: "color-mix(in srgb, currentColor 10%, transparent)", text: personColor(owner)[1] }
@@ -140,6 +140,17 @@ export default function Timeline({ scrollRef, ...p }: Props) {
               {inGroup && <span className="text-stone-400">{pathOf(item)}</span>}{item.title || "Sans titre"}
             </span>
           )}
+          {(Object.keys(TAGS) as (keyof typeof TAGS)[]).map((t) => {
+            const on = activeTags(items, item.id).filter((e) => e.tag === t);
+            if (!on.length) return null;
+            const { label, Icon, cls } = TAGS[t];
+            return (
+              <span key={t} title={`${label}${hasChildren ? " (dans les sous-items)" : ""} : ${on.map((e) => e.reason).join(" · ")}`} aria-label={label}
+                className={cx("flex size-4 shrink-0 animate-fade-in items-center justify-center rounded-[4px]", cls)}>
+                <Icon size={10} strokeWidth={2.5} />
+              </span>
+            );
+          })}
           {late && <TriangleAlert size={13} className="shrink-0 animate-fade-in text-red-600" aria-label="Après son jalon" />}
           {!hasChildren && item.status === "doing" && (allocationOn(item, todayIso()) === 0 ? (
             <span title="En pause : tous ses owners sont à 0 %, la tâche n'avance plus" aria-label="En pause"

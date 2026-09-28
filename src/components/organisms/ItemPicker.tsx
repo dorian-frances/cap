@@ -5,13 +5,13 @@ import { useRef, useState } from "react";
 import { Menu } from "@base-ui/react/menu";
 import { Popover } from "@base-ui/react/popover";
 import { Plus } from "lucide-react";
-import { isWeekend, planCapacity, startBefore, workJh, toDay, toIso, todayIso, fmtDay, type Item, type Plan, type Status } from "@/lib/plan";
+import { isWeekend, planCapacity, startBefore, workJh, toDay, toIso, todayIso, fmtDay, openTags, type Item, type Plan, type Status, type Tag } from "@/lib/plan";
 import type { Data, Store } from "@/lib/store";
 import { cx } from "@/lib/cx";
 import type { PickKind } from "./Timeline";
 import { Avatar, Button, Diamond, Kbd, StatusIcon } from "../atoms";
 import { Calendar, MenuCheckboxItem, MenuContent, MenuEmpty, MenuHeader, MenuItem, MenuRadioItem, MenuSeparator, PopoverContent } from "../molecules";
-import { STATUS } from "../tokens";
+import { STATUS, TAGS } from "../tokens";
 
 export type PickerState = { kind: PickKind; ids: string[]; anchor: Element } | null;
 
@@ -19,8 +19,8 @@ export type PickerState = { kind: PickKind; ids: string[]; anchor: Element } | n
  * `onClose(kind)` ne ferme que si le sélecteur affiché est encore celui-là : passer du statut
  * à sa date (`onStep`) ferme le menu sans fermer l'étape suivante.
  */
-export function ItemPicker({ state, data, plan, store, onClose: close, onStep, onManageTeam }: {
-  state: PickerState; data: Data; plan: Plan; store: Store; onClose: (kind: PickKind) => void; onStep: (kind: "start" | "done") => void; onManageTeam: () => void;
+export function ItemPicker({ state, data, plan, store, me, onClose: close, onStep, onManageTeam }: {
+  state: PickerState; data: Data; plan: Plan; store: Store; me: string; onClose: (kind: PickKind) => void; onStep: (kind: "start" | "done") => void; onManageTeam: () => void;
 }) {
   if (!state) return null;
   const onClose = () => close(state.kind);
@@ -28,6 +28,7 @@ export function ItemPicker({ state, data, plan, store, onClose: close, onStep, o
   const common = <K extends keyof Item>(k: K) => (items.every((i) => i[k] === items[0]?.[k]) ? items[0]?.[k] : undefined);
 
   if (state.kind === "estimate") return <EstimatePopover state={state} items={items} store={store} onClose={onClose} />;
+  if (state.kind === "tags") return <TagPopover state={state} items={items} store={store} me={me} onClose={onClose} />;
   if (state.kind === "extra") return <AvenantPopover state={state} items={items} store={store} onClose={onClose} />;
   if (state.kind === "start" || state.kind === "done") return <DateStep kind={state.kind} state={state} items={items} data={data} plan={plan} store={store} onClose={onClose} />;
 
@@ -150,6 +151,46 @@ function DateStep({ kind, state, items, data, plan, store, onClose }: {
           <button type="button" className={chip} onClick={() => apply(today)}>Aujourd&apos;hui</button>
           <button type="button" className={chip} onClick={() => apply(prevWorkday(today))}>Veille ouvrée</button>
         </div>
+      </PopoverContent>
+    </Popover.Root>
+  );
+}
+
+/** Pose d'un tag, avec sa raison, sur un ou plusieurs items (ignoré là où il est déjà actif). */
+function TagPopover({ state, items, store, me, onClose }: { state: NonNullable<PickerState>; items: Item[]; store: Store; me: string; onClose: () => void }) {
+  const has = (t: Tag) => items.every((i) => openTags(i).some((e) => e.tag === t));
+  const [tag, setTag] = useState<Tag | null>((Object.keys(TAGS) as Tag[]).find((t) => !has(t)) ?? null);
+  const [reason, setReason] = useState("");
+  const save = () => {
+    if (!tag || !reason.trim()) return;
+    for (const it of items) {
+      if (openTags(it).some((e) => e.tag === tag)) continue;
+      store.updateItems([it.id], { tag_log: [...(it.tag_log ?? []), { id: crypto.randomUUID(), tag, reason: reason.trim(), on: todayIso(), by: me }] });
+    }
+    onClose();
+  };
+  return (
+    <Popover.Root open onOpenChange={(o) => !o && onClose()}>
+      <PopoverContent anchor={state.anchor} align="end" finalFocus={false} className="w-[300px] p-3">
+        <form className="flex flex-col gap-2.5" onSubmit={(e) => { e.preventDefault(); save(); }}>
+          <span className="text-xs text-stone-500">Poser un tag</span>
+          <div className="flex flex-wrap gap-1">
+            {(Object.keys(TAGS) as Tag[]).map((t) => {
+              const { label, hint, Icon, cls } = TAGS[t];
+              return (
+                <button type="button" key={t} disabled={has(t)} onClick={() => setTag(t)} title={has(t) ? "Déjà actif" : hint}
+                  className={cx("flex h-[26px] items-center gap-1.5 rounded-md border px-2 text-xs transition-colors duration-100 disabled:opacity-40", t === tag ? "border-accent-500 bg-accent-50 text-accent-800" : "border-stone-200 hover:bg-stone-50")}>
+                  <span className={cx("flex size-4 items-center justify-center rounded-[4px]", cls)}><Icon size={10} strokeWidth={2.5} /></span>{label}
+                </button>
+              );
+            })}
+          </div>
+          <input aria-label="Raison" autoFocus value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Raison (ex. attend la validation de l'API client)"
+            className="h-8 rounded-[7px] border border-stone-200 px-2.5 text-[13px] outline-none transition-shadow focus:border-accent-500 focus:ring-[3px] focus:ring-accent-100" />
+          <div className="flex justify-end">
+            <Button type="submit" size="sm" variant="primary" disabled={!tag || !reason.trim()}>Poser le tag</Button>
+          </div>
+        </form>
       </PopoverContent>
     </Popover.Root>
   );

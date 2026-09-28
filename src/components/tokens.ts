@@ -1,10 +1,18 @@
 // Tokens utilisés en style inline (couleurs calculées à l'exécution). Le reste vit dans globals.css (@theme).
-import type { Status } from "@/lib/plan";
+import { Ban, Flame, Link, type LucideIcon } from "lucide-react";
+import type { Status, Tag } from "@/lib/plan";
 
 export const STATUS: Record<Status, { label: string; bar: string; border: string; text: string; key: string }> = {
   todo: { label: "À faire", bar: "var(--st-todo-bar)", border: "var(--st-todo-border)", text: "var(--st-todo-text)", key: "1" },
   doing: { label: "En cours", bar: "var(--st-doing-bar)", border: "var(--st-doing-border)", text: "var(--st-doing-text)", key: "2" },
   done: { label: "Fait", bar: "var(--st-done-bar)", border: "var(--st-done-border)", text: "var(--st-done-text)", key: "3" },
+};
+
+// Ordre d'affichage : du plus grave au moins grave.
+export const TAGS: Record<Tag, { label: string; hint: string; Icon: LucideIcon; cls: string }> = {
+  blocked: { label: "Bloqué", hint: "Ne peut pas avancer", Icon: Ban, cls: "bg-red-50 text-red-700" },
+  risk: { label: "À risque", hint: "Incertitude à surveiller", Icon: Flame, cls: "bg-amber-100 text-amber-800" },
+  dependency: { label: "Dépendance", hint: "Attend une équipe, un client ou une API externe", Icon: Link, cls: "bg-(--p4-bg) text-(--p4-fg)" },
 };
 
 export const ACCENT = "var(--color-accent-600)";
