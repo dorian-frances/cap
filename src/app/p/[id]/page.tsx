@@ -369,7 +369,9 @@ function ProjectPage() {
                   colorBy={colorBy} flat={byStart} selected={selected} renaming={renaming} collapsed={collapsed} scrollRef={scrollRef}
                   header={<>
                     <div className="flex items-baseline gap-1.5"><span className="font-medium">Items</span><span className="text-xs tabular-nums text-stone-400">{features.length}</span></div>
-                    <div className="flex text-[11px] text-stone-400"><span className="flex-1">{byStart ? "Triés par date de début" : "Ordre de la liste = priorité"}</span><span className="w-11 text-right">JH</span><span className="w-14 text-right">Owners</span></div>
+                    <div className="flex text-[11px] text-stone-400"><span className="min-w-0 flex-1 truncate" title={byStart ? "Triés par date de début : repasser en vue Priorité pour déplacer ou imbriquer les items" : undefined}>
+                        {byStart ? "Par date de début · déplacement désactivé" : "Ordre de la liste = priorité"}
+                      </span><span className="w-11 text-right">JH</span><span className="w-14 text-right">Owners</span></div>
                   </>}
                   footer={features.length > 0 && (
                     <div className="flex h-8">
