@@ -5,7 +5,7 @@ import { useRef, useState } from "react";
 import { Menu } from "@base-ui/react/menu";
 import { Popover } from "@base-ui/react/popover";
 import { Plus } from "lucide-react";
-import { isWeekend, planCapacity, startBefore, workJh, toDay, toIso, todayIso, fmtDay, openTags, type Item, type Plan, type Status, type Tag } from "@/lib/plan";
+import { isWeekend, planCapacity, startBefore, workJh, toDay, toIso, todayIso, fmtDay, type Item, type Plan, type Status, type Tag } from "@/lib/plan";
 import type { Data, Store } from "@/lib/store";
 import { cx } from "@/lib/cx";
 import type { PickKind } from "./Timeline";
@@ -156,15 +156,13 @@ function DateStep({ kind, state, items, data, plan, store, onClose }: {
   );
 }
 
-/** Pose d'un tag, avec sa raison, sur un ou plusieurs items (ignoré là où il est déjà actif). */
+/** Pose d'un tag, avec sa raison, sur un ou plusieurs items (plusieurs tags d'une même catégorie possibles, chacun avec sa raison). */
 function TagPopover({ state, items, store, me, onClose }: { state: NonNullable<PickerState>; items: Item[]; store: Store; me: string; onClose: () => void }) {
-  const has = (t: Tag) => items.every((i) => openTags(i).some((e) => e.tag === t));
-  const [tag, setTag] = useState<Tag | null>((Object.keys(TAGS) as Tag[]).find((t) => !has(t)) ?? null);
+  const [tag, setTag] = useState<Tag | null>("risk");
   const [reason, setReason] = useState("");
   const save = () => {
     if (!tag || !reason.trim()) return;
     for (const it of items) {
-      if (openTags(it).some((e) => e.tag === tag)) continue;
       store.updateItems([it.id], { tag_log: [...(it.tag_log ?? []), { id: crypto.randomUUID(), tag, reason: reason.trim(), on: todayIso(), by: me }] });
     }
     onClose();
@@ -178,8 +176,8 @@ function TagPopover({ state, items, store, me, onClose }: { state: NonNullable<P
             {(Object.keys(TAGS) as Tag[]).map((t) => {
               const { label, hint, Icon, cls } = TAGS[t];
               return (
-                <button type="button" key={t} disabled={has(t)} onClick={() => setTag(t)} title={has(t) ? "Déjà actif" : hint}
-                  className={cx("flex h-[26px] items-center gap-1.5 rounded-md border px-2 text-xs transition-colors duration-100 disabled:opacity-40", t === tag ? "border-accent-500 bg-accent-50 text-accent-800" : "border-stone-200 hover:bg-stone-50")}>
+                <button type="button" key={t} onClick={() => setTag(t)} title={hint}
+                  className={cx("flex h-[26px] items-center gap-1.5 rounded-md border px-2 text-xs transition-colors duration-100", t === tag ? "border-accent-500 bg-accent-50 text-accent-800" : "border-stone-200 hover:bg-stone-50")}>
                   <span className={cx("flex size-4 items-center justify-center rounded-[4px]", cls)}><Icon size={10} strokeWidth={2.5} /></span>{label}
                 </button>
               );

@@ -154,9 +154,10 @@ export default function Timeline({ scrollRef, ...p }: Props) {
             if (!on.length) return null;
             const { label, Icon, cls } = TAGS[t];
             return (
-              <span key={t} title={`${label}${hasChildren ? " (dans les sous-items)" : ""} : ${on.map((e) => e.reason).join(" · ")}`} aria-label={label}
-                className={cx("flex size-4 shrink-0 animate-fade-in items-center justify-center rounded-[4px]", cls)}>
-                <Icon size={10} strokeWidth={2.5} />
+              <span key={t} title={`${label}${on.length > 1 ? ` ×${on.length}` : ""}${hasChildren ? " (dans les sous-items)" : ""} : ${on.map((e) => e.reason).join(" · ")}`} aria-label={label}
+                className="flex shrink-0 animate-fade-in items-center gap-0.5">
+                <span className={cx("flex size-4 items-center justify-center rounded-[4px]", cls)}><Icon size={10} strokeWidth={2.5} /></span>
+                {on.length > 1 && <span className="text-[11px] font-medium tabular-nums text-stone-500">{on.length}</span>}
               </span>
             );
           })}
