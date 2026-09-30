@@ -27,6 +27,7 @@ type Props = {
   onToggleGroup: () => void;
   ax: Axis;
   colorBy: "status" | "owner";
+  flat?: boolean; // vue par date de début : lignes à plat (chemin du parent affiché), pas de glisser-déposer
   selected: Set<string>;
   renaming: string | null;
   collapsed: Set<string>;
@@ -105,7 +106,7 @@ export default function Timeline({ scrollRef, ...p }: Props) {
         onClick={(e) => p.onRowClick(item.id, e)}
         onContextMenu={() => p.onContext(item.id)}
         onDragOver={(e) => {
-          if (!dragId || dragId === item.id) return;
+          if (p.flat || !dragId || dragId === item.id) return;
           e.preventDefault();
           const r = e.currentTarget.getBoundingClientRect();
           setDrop({ id: item.id, where: e.clientY < r.top + r.height / 2 ? "before" : "after" });
@@ -114,10 +115,10 @@ export default function Timeline({ scrollRef, ...p }: Props) {
         onDrop={(e) => { e.preventDefault(); if (dragId && drop) p.onDrop(dragId, drop.id, drop.where); setDrop(null); setDragId(null); }}>
         <div className={cx("sticky left-0 z-10 flex shrink-0 items-center gap-1.5 border-r border-stone-100 pr-3 transition-colors duration-150", sel ? "bg-accent-50" : "bg-surface group-hover:bg-stone-50")}
           style={{ width: "var(--left)", ...tint, boxShadow: tag ? `inset 3px 0 0 ${TAGS[tag].tone}` : undefined }}>
-          <span draggable aria-label="Déplacer" title="Glisser pour réordonner"
+          <span draggable={!p.flat} aria-label="Déplacer" title="Glisser pour réordonner"
             onDragStart={(e) => { setDragId(item.id); e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", item.id); }}
             onDragEnd={() => { setDragId(null); setDrop(null); }}
-            className="flex w-7 shrink-0 cursor-grab justify-center text-stone-400 opacity-0 transition-opacity duration-150 group-hover:opacity-100 pointer-coarse:opacity-40">
+            className={cx("flex w-7 shrink-0 cursor-grab justify-center text-stone-400 opacity-0 transition-opacity duration-150 group-hover:opacity-100 pointer-coarse:opacity-40", p.flat && "invisible")}>
             <GripVertical size={14} />
           </span>
           <span className="shrink-0" style={{ width: depth * 18 }} />
@@ -144,9 +145,9 @@ export default function Timeline({ scrollRef, ...p }: Props) {
               onBlur={(e) => p.onRename(item.id, e.currentTarget.value)}
               className="h-6 min-w-0 flex-1 rounded border border-accent-400 bg-surface px-1.5 text-[13px] outline-none ring-2 ring-accent-100" />
           ) : (
-            <span data-cell="title" title={`${inGroup ? pathOf(item) : ""}${item.title || "Sans titre"}`} onDoubleClick={() => p.onStartRename(item.id)}
+            <span data-cell="title" title={`${inGroup || p.flat ? pathOf(item) : ""}${item.title || "Sans titre"}`} onDoubleClick={() => p.onStartRename(item.id)}
               className={cx("min-w-0 truncate text-[13px]", hasChildren && "font-semibold", !item.title && "text-stone-400")}>
-              {inGroup && <span className="text-stone-400">{pathOf(item)}</span>}{item.title || "Sans titre"}
+              {(inGroup || p.flat) && <span className="text-stone-400">{pathOf(item)}</span>}{item.title || "Sans titre"}
             </span>
           )}
           {(Object.keys(TAGS) as (keyof typeof TAGS)[]).map((t) => {

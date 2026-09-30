@@ -24,6 +24,7 @@ import AbsencesView from "@/components/organisms/AbsencesView";
 import SettingsView from "@/components/organisms/SettingsView";
 import GuideView from "@/components/organisms/GuideView";
 import { setTheme } from "@/lib/theme";
+import { useStored } from "@/lib/useStored";
 import ShareDialog from "@/components/organisms/ShareDialog";
 import AbsenceDialog from "@/components/organisms/AbsenceDialog";
 import EmptyState from "@/components/organisms/EmptyState";
@@ -70,8 +71,11 @@ function ProjectPage() {
   const [palette, setPalette] = useState(false);
   const [share, setShare] = useState(false);
   const [absenceDlg, setAbsenceDlg] = useState(false);
-  const [colorBy, setColorBy] = useState<"status" | "owner">("status");
-  const [showDone, setShowDone] = useState(true);
+  const [colorBy, setColorBy] = useStored<"status" | "owner">("cap:colorBy", "status");
+  const [showDone, setShowDone] = useStored("cap:showDone", true);
+  // « start » : vue escalier, items à plat triés par date de début ; la priorité n'y est pas modifiable.
+  const [sortBy, setSortBy] = useStored<"priority" | "start">("cap:sortBy", "priority");
+  const byStart = sortBy === "start";
   const [ownerFilter, setOwnerFilter] = useState<Set<string>>(new Set());
   const [lateOnly, setLateOnly] = useState(false);
   const [groupOpen, setGroupOpen] = useState(true);
@@ -108,12 +112,17 @@ function ProjectPage() {
     for (const r of allRows) if (!r.hasChildren && !toPlan(r) && keepLeaf(r)) {
       for (let it: Item | undefined = r.item; it; it = it.parent_id ? byId.get(it.parent_id) : undefined) kept.add(it.id);
     }
+    const leaves = allRows.filter((r) => toPlan(r) && keepLeaf(r)).map((r) => ({ ...r, depth: 0 }));
+    if (byStart) {
+      const start = (r: Row) => plan.spans.get(r.item.id)?.start ?? "\uffff";
+      return [allRows.filter((r) => !r.hasChildren && kept.has(r.item.id)).map((r) => ({ ...r, depth: 0 })).sort((a, b) => start(a).localeCompare(start(b))), leaves];
+    }
     const hidden = (it: Item): boolean => !!it.parent_id && (collapsed.has(it.parent_id) || hidden(byId.get(it.parent_id)!));
     return [
       allRows.filter((r) => (r.hasChildren ? kept.has(r.item.id) || !filtered : kept.has(r.item.id)) && !hidden(r.item)),
-      allRows.filter((r) => toPlan(r) && keepLeaf(r)).map((r) => ({ ...r, depth: 0 })),
+      leaves,
     ];
-  }, [allRows, byId, collapsed, showDone, ownerFilter, lateOnly, plan, fresh, cursor, renaming]);
+  }, [allRows, byId, collapsed, showDone, ownerFilter, lateOnly, plan, fresh, cursor, renaming, byStart]);
   const order = useMemo(() => [...rows, ...(groupOpen ? unplanned : [])].map((r) => r.item.id), [rows, unplanned, groupOpen]);
 
   const ax = useMemo(() => axis(zoom, data?.project.start_date ?? "2026-01-01", [
@@ -155,6 +164,7 @@ function ProjectPage() {
     moveTo(dragId, target.parent_id, where === "before" ? between(sib[i - 1], sib[i]) : between(sib[i], sib[i + 1]));
   };
   const moveBy = (iid: string, dir: -1 | 1) => {
+    if (byStart) return;
     const it = byId.get(iid); if (!it) return;
     const sib = siblings(it.parent_id);
     const i = sib.findIndex((s) => s.id === iid);
@@ -163,6 +173,7 @@ function ProjectPage() {
     store.updateItems([other.id], { position: it.position });
   };
   const indent = (iid: string) => {
+    if (byStart) return;
     const it = byId.get(iid); if (!it) return;
     const sib = siblings(it.parent_id);
     const prev = sib[sib.findIndex((s) => s.id === iid) - 1]; if (!prev) return;
@@ -171,6 +182,7 @@ function ProjectPage() {
     setCollapsed((c) => { const n = new Set(c); n.delete(prev.id); return n; });
   };
   const outdent = (iid: string) => {
+    if (byStart) return;
     const it = byId.get(iid); const parent = it?.parent_id ? byId.get(it.parent_id) : undefined; if (!it || !parent) return;
     const sib = siblings(parent.parent_id);
     const i = sib.findIndex((s) => s.id === parent.id);
@@ -348,16 +360,16 @@ function ProjectPage() {
       <div key={view} className="flex min-h-0 flex-1 animate-fade-in flex-col">
         {view === "timeline" && (
           <>
-            <TimelineToolbar people={data.people} ownerFilter={ownerFilter} onOwnerFilter={setOwnerFilter} colorBy={colorBy} onColorBy={setColorBy}
+            <TimelineToolbar people={data.people} ownerFilter={ownerFilter} onOwnerFilter={setOwnerFilter} colorBy={colorBy} onColorBy={setColorBy} sortBy={sortBy} onSortBy={setSortBy}
               showDone={showDone} onShowDone={setShowDone} lateOnly={lateOnly} onLateOnly={setLateOnly} zoom={zoomCtl} onNew={newFromCursor} />
             <ContextMenu.Root>
               <ContextMenu.Trigger className="flex min-h-0 flex-1 flex-col">
                 <Timeline items={items} people={data.people} plan={plan} rows={rows} ax={ax}
                   unplanned={unplanned} groupOpen={groupOpen} onToggleGroup={() => setGroupOpen((o) => !o)}
-                  colorBy={colorBy} selected={selected} renaming={renaming} collapsed={collapsed} scrollRef={scrollRef}
+                  colorBy={colorBy} flat={byStart} selected={selected} renaming={renaming} collapsed={collapsed} scrollRef={scrollRef}
                   header={<>
                     <div className="flex items-baseline gap-1.5"><span className="font-medium">Items</span><span className="text-xs tabular-nums text-stone-400">{features.length}</span></div>
-                    <div className="flex text-[11px] text-stone-400"><span className="flex-1">Ordre de la liste = priorité</span><span className="w-11 text-right">JH</span><span className="w-14 text-right">Owners</span></div>
+                    <div className="flex text-[11px] text-stone-400"><span className="flex-1">{byStart ? "Triés par date de début" : "Ordre de la liste = priorité"}</span><span className="w-11 text-right">JH</span><span className="w-14 text-right">Owners</span></div>
                   </>}
                   footer={features.length > 0 && (
                     <div className="flex h-8">
@@ -385,10 +397,12 @@ function ProjectPage() {
                   <MenuSeparator />
                   <MenuItem kbd="R" onClick={() => setRenaming(ctxItem.id)}>Renommer</MenuItem>
                   <MenuItem onClick={() => newItem(ctxItem.id)}>Ajouter un sous-item</MenuItem>
-                  <MenuItem kbd="Tab" onClick={() => indent(ctxItem.id)}>Imbriquer</MenuItem>
-                  <MenuItem kbd="⇧Tab" onClick={() => outdent(ctxItem.id)}>Désimbriquer</MenuItem>
-                  <MenuItem kbd="⌥↑" onClick={() => moveBy(ctxItem.id, -1)}>Monter en priorité</MenuItem>
-                  <MenuItem kbd="⌥↓" onClick={() => moveBy(ctxItem.id, 1)}>Descendre en priorité</MenuItem>
+                  {!byStart && <>
+                    <MenuItem kbd="Tab" onClick={() => indent(ctxItem.id)}>Imbriquer</MenuItem>
+                    <MenuItem kbd="⇧Tab" onClick={() => outdent(ctxItem.id)}>Désimbriquer</MenuItem>
+                    <MenuItem kbd="⌥↑" onClick={() => moveBy(ctxItem.id, -1)}>Monter en priorité</MenuItem>
+                    <MenuItem kbd="⌥↓" onClick={() => moveBy(ctxItem.id, 1)}>Descendre en priorité</MenuItem>
+                  </>}
                   <MenuSeparator />
                   <MenuItem onClick={() => navigator.clipboard.writeText(`${location.origin}/p/${id}?item=${ctxItem.id}`)}>Copier le lien</MenuItem>
                   <MenuItem danger kbd="⌫" onClick={() => remove(ctxTargets())}>Supprimer</MenuItem>
@@ -413,7 +427,7 @@ function ProjectPage() {
 
       {panelItem && (view === "timeline" || view === "equipe") && (
         <ItemPanel item={panelItem} closing={panelClosing} data={data} plan={plan} store={store} me={me} onClose={closePanel} onOpen={openItem}
-          onPick={(kind, anchor) => setPicker({ kind, ids: [panelItem.id], anchor })} onMoveUp={() => moveBy(panelItem.id, -1)} />
+          onPick={(kind, anchor) => setPicker({ kind, ids: [panelItem.id], anchor })} onMoveUp={byStart ? undefined : () => moveBy(panelItem.id, -1)} />
       )}
 
       {view === "timeline" && (

@@ -148,3 +148,8 @@ Principe clé : **la barre n'est pas dessinée, elle est calculée** à partir d
 - Problème : P11
 - Pour qui : PM
 - Résolu quand : les tâches sans owner ou sans estimation sont regroupées en bas de la timeline avec leur raison ; un item tout juste créé reste à sa place tant qu'on le saisit ; il rejoint la liste dès qu'il est planifiable.
+
+### Vue par date de début (escalier)
+- Problème : P1, P7
+- Pour qui : PM, client
+- Résolu quand : une bascule « Priorité / Date de début » sur la timeline affiche les tâches à plat, triées par date de début (chemin du parent en préfixe) pour lire l'enchaînement en escalier ; dans cette vue on ne peut ni réordonner ni imbriquer (glisser, ⌥↑/⌥↓, Tab désactivés). La vue choisie, la couleur des barres et « Afficher les items faits » sont mémorisées sur le navigateur.

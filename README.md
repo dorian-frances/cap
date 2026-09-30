@@ -12,6 +12,8 @@ Stack : Next.js (tout en client components) + Supabase (Postgres, Auth, RLS). D�
 | `src/lib/plan.ts` | Domaine : types + calcul du planning (fonctions pures, testées) |
 | `src/lib/axis.ts`, `calendar.ts` | Échelle de temps, grille du sélecteur de dates (testée) |
 | `src/lib/store.ts` | État d'un projet : chargement, écritures optimistes, annulation |
+| `src/lib/useStored.ts` | `useState` mémorisé dans le localStorage (préférences d'affichage) |
+| `src/lib/useStored.ts` | `useState` mémorisé dans le localStorage (préférences d'affichage) |
 | `src/app/p/[id]/page.tsx` | Page projet : assemblage, clavier, sélection, ⌘K |
 | `src/app/share/[token]/page.tsx` | Vue client en lecture seule (sans compte) |
 | `supabase/migrations/` | Schéma, RLS, `create_project`, `get_shared_project` |

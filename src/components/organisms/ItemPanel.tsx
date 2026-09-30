@@ -23,7 +23,7 @@ type Props = {
   onClose: () => void;
   onOpen: (id: string) => void;
   onPick: (kind: PickKind, anchor: Element) => void;
-  onMoveUp: () => void;
+  onMoveUp?: () => void; // absent en vue par date de début
 };
 
 export default function ItemPanel({ item, data, plan, store, me, closing, onClose, onOpen, onPick, onMoveUp }: Props) {
@@ -263,7 +263,7 @@ export default function ItemPanel({ item, data, plan, store, me, closing, onClos
             {!isParent && (
               <div className="flex gap-1.5">
                 <Button size="sm" onClick={(e) => onPick("owners", e.currentTarget)}>Ajouter un owner</Button>
-                <Button size="sm" onClick={onMoveUp}>Monter en priorité</Button>
+                {onMoveUp && <Button size="sm" onClick={onMoveUp}>Monter en priorité</Button>}
               </div>
             )}
           </div>

@@ -21,15 +21,18 @@ export function ZoomControl({ zoom, onZoom, onToday }: { zoom: Zoom; onZoom: (z:
   );
 }
 
-export function TimelineToolbar({ people, ownerFilter, onOwnerFilter, colorBy, onColorBy, showDone, onShowDone, lateOnly, onLateOnly, zoom, onNew }: {
+export function TimelineToolbar({ people, ownerFilter, onOwnerFilter, colorBy, onColorBy, sortBy, onSortBy, showDone, onShowDone, lateOnly, onLateOnly, zoom, onNew }: {
   people: Person[]; ownerFilter: Set<string>; onOwnerFilter: (s: Set<string>) => void;
-  colorBy: "status" | "owner"; onColorBy: (c: "status" | "owner") => void; showDone: boolean; onShowDone: (v: boolean) => void;
+  colorBy: "status" | "owner"; onColorBy: (c: "status" | "owner") => void;
+  sortBy: "priority" | "start"; onSortBy: (s: "priority" | "start") => void; showDone: boolean; onShowDone: (v: boolean) => void;
   lateOnly: boolean; onLateOnly: (v: boolean) => void; zoom: React.ReactNode; onNew: () => void;
 }) {
   const n = ownerFilter.size + (lateOnly ? 1 : 0);
   const label = [lateOnly && "En retard", ownerFilter.size && `${ownerFilter.size} owner${ownerFilter.size > 1 ? "s" : ""}`].filter(Boolean).join(" · ");
   return (
     <Toolbar>
+      <SegmentedControl label="Ordre des items" value={sortBy} onChange={onSortBy}
+        options={[{ value: "priority", label: "Priorité" }, { value: "start", label: "Date de début" }]} />
       <Menu.Root>
         <Menu.Trigger className={cx(buttonCls(n ? "secondary" : "dashed", "sm"), "font-normal", n > 0 && "border-accent-200 bg-accent-50 text-accent-800 hover:bg-accent-50")}>
           <ListFilter size={13} />{n ? label : "Filtrer"}
