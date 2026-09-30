@@ -4,14 +4,14 @@ import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "rea
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { ContextMenu } from "@base-ui/react/context-menu";
-import { Check, ChevronRight, Link2, Plus } from "lucide-react";
+import { Check, ChevronRight, Info, Link2, Plus } from "lucide-react";
 import { orderItems, overdue, overloaded, schedule, type Item, type Row } from "@/lib/plan";
 import { axis, type Zoom } from "@/lib/axis";
 import { useProject } from "@/lib/store";
 import { supabase } from "@/lib/supabase";
 import { usePresence } from "@/lib/usePresence";
 import { Button, StatusIcon } from "@/components/atoms";
-import { ContextMenuContent, MenuItem, MenuSeparator, ToastProvider, Toaster, TooltipProvider, toasts } from "@/components/molecules";
+import { ContextMenuContent, MenuItem, MenuSeparator, ToastProvider, Toaster, Tooltip, TooltipProvider, toasts } from "@/components/molecules";
 import { AppShell, AppSkeleton } from "@/components/templates";
 import Timeline, { type PickKind } from "@/components/organisms/Timeline";
 import ItemPanel from "@/components/organisms/ItemPanel";
@@ -369,8 +369,13 @@ function ProjectPage() {
                   colorBy={colorBy} flat={byStart} selected={selected} renaming={renaming} collapsed={collapsed} scrollRef={scrollRef}
                   header={<>
                     <div className="flex items-baseline gap-1.5"><span className="font-medium">Items</span><span className="text-xs tabular-nums text-stone-400">{features.length}</span></div>
-                    <div className="flex text-[11px] text-stone-400"><span className="min-w-0 flex-1 truncate" title={byStart ? "Triés par date de début : repasser en vue Priorité pour déplacer ou imbriquer les items" : undefined}>
-                        {byStart ? "Par date de début · déplacement désactivé" : "Ordre de la liste = priorité"}
+                    <div className="flex text-[11px] text-stone-400"><span className="flex min-w-0 flex-1 items-center gap-1">
+                        <span className="truncate">{byStart ? "Par date de début · déplacement désactivé" : "Ordre de la liste = priorité"}</span>
+                        {byStart && (
+                          <Tooltip label="Repasser en vue Priorité pour déplacer ou imbriquer les items">
+                            <button type="button" aria-label="Pourquoi le déplacement est désactivé" className="shrink-0 rounded-full text-stone-400 transition-colors hover:text-stone-600"><Info size={12} /></button>
+                          </Tooltip>
+                        )}
                       </span><span className="w-11 text-right">JH</span><span className="w-14 text-right">Owners</span></div>
                   </>}
                   footer={features.length > 0 && (
