@@ -49,6 +49,15 @@ test("seuls les éditeurs accèdent au projet ; le lien de partage suffit pour l
   assert.equal((await a.c.from("project_members").insert({ project_id: pid, email: b.email })).error, null);
   assert.equal((await b.c.from("items").select().eq("project_id", pid)).data?.length, 1);
 
+  // Liste des éditeurs avec statut : réservée aux éditeurs, un·e invité·e sans compte n'a pas de connexion
+  await a.c.from("project_members").insert({ project_id: pid, email: "invite@test.dev" });
+  const { data: editors } = await a.c.rpc("project_editors", { pid });
+  assert.equal(editors.length, 3);
+  assert.notEqual(editors.find((e: { email: string }) => e.email === a.email).last_sign_in_at, null);
+  assert.equal(editors.find((e: { email: string }) => e.email === "invite@test.dev").last_sign_in_at, null);
+  assert.deepEqual((await (await user()).c.rpc("project_editors", { pid })).data, []);
+  assert.notEqual((await anon.rpc("project_editors", { pid })).error, null);
+
   // Supprimer une personne la retire des owners
   await a.c.from("people").delete().eq("id", person.id);
   assert.deepEqual((await a.c.from("items").select("owner_ids").eq("project_id", pid).single()).data?.owner_ids, []);

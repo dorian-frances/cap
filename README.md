@@ -16,7 +16,7 @@ Stack : Next.js (tout en client components) + Supabase (Postgres, Auth, RLS). D�
 | `src/lib/useStored.ts` | `useState` mémorisé dans le localStorage (préférences d'affichage) |
 | `src/app/p/[id]/page.tsx` | Page projet : assemblage, clavier, sélection, ⌘K |
 | `src/app/share/[token]/page.tsx` | Vue client en lecture seule (sans compte) |
-| `supabase/migrations/` | Schéma, RLS, `create_project`, `get_shared_project` |
+| `supabase/migrations/` | Schéma, RLS, `create_project`, `get_shared_project`, `project_editors` |
 
 ### Design system (`src/components/`, atomic design)
 

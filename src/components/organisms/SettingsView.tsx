@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Plus, X } from "lucide-react";
+import { fmtDay } from "@/lib/plan";
 import type { Data, Store } from "@/lib/store";
 import { Button, Input } from "../atoms";
 import { ConfirmDialog, DatePicker, Field, IconButton } from "../molecules";
@@ -22,12 +23,16 @@ export default function SettingsView({ data, store, me }: { data: Data; store: S
           <DatePicker label="Début du planning" className="w-72" value={data.project.start_date} onChange={(d) => d && store.updateProject({ start_date: d })} />
         </Field>
       </Section>
-      <Section title="Éditeurs" description="Ils se connectent avec leur compte Google et peuvent modifier le plan.">
+      <Section title="Éditeurs" description="Ils se connectent avec leur compte Google et peuvent modifier le plan. Un·e invité·e accède au projet dès sa première connexion.">
         <div>
-          {data.members.map((m) => (
+          {data.members.map(({ email: m, last_sign_in_at: seen }) => (
             <div key={m} className="group flex h-8 animate-fade-in items-center gap-2 text-[13px]">
-              <span className="flex-1">{m}{m === me && <span className="text-stone-400"> (vous)</span>}</span>
-              {m !== me && <IconButton label={`Retirer ${m}`} tooltip={false} onClick={() => store.removeMember(m)} className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100"><X size={14} /></IconButton>}
+              <span className="min-w-0 flex-1 truncate">{m}{m === me && <span className="text-stone-400"> (vous)</span>}</span>
+              <span className="text-xs text-stone-500">{seen ? `Connecté·e le ${fmtDay(seen.slice(0, 10), true)}` : "Invité·e, jamais connecté·e"}</span>
+              {m !== me && <ConfirmDialog title={`Retirer ${m} ?`} confirmLabel="Retirer l'accès" danger
+                description="Cette personne ne pourra plus ouvrir ni modifier le plan. Vous pourrez la réinviter."
+                onConfirm={() => store.removeMember(m)}
+                trigger={<IconButton label={`Retirer ${m}`} tooltip={false} className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100 data-[popup-open]:opacity-100"><X size={14} /></IconButton>} />}
             </div>
           ))}
         </div>

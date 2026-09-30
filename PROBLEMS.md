@@ -107,7 +107,7 @@ Principe clé : **la barre n'est pas dessinée, elle est calculée** à partir d
 ### Éditeurs par email
 - Problème : P7
 - Pour qui : PM, tech lead
-- Résolu quand : seuls les emails ajoutés au projet peuvent le modifier.
+- Résolu quand : seuls les emails ajoutés au projet peuvent le modifier ; les Paramètres listent les éditeurs avec leur statut (« Invité·e », jamais connecté·e, ou « Connecté·e le … ») et permettent de retirer l'accès (après confirmation, sauf à soi-même).
 
 ### Dates réelles et retard sur l'estimation
 - Problème : P10

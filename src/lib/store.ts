@@ -12,8 +12,10 @@ export type Data = {
   items: Item[];
   people: Person[];
   absences: Absence[];
-  members: string[];
+  members: Member[];
 };
+/** Éditeur du projet ; `last_sign_in_at` nul = invité·e, jamais connecté·e. */
+export type Member = { email: string; last_sign_in_at: string | null };
 type Q = PromiseLike<{ error: { message: string } | null }>;
 
 const uid = () => crypto.randomUUID();
@@ -31,12 +33,12 @@ export function useProject(id: string) {
       supabase.from("items").select("*").eq("project_id", id),
       supabase.from("people").select("*").eq("project_id", id).order("created_at"),
       supabase.from("absences").select("*").eq("project_id", id).order("start_date"),
-      supabase.from("project_members").select("email").eq("project_id", id).order("email"),
+      supabase.rpc("project_editors", { pid: id }),
     ]);
     if (n !== seq.current) return;
     setData(p.data ? {
       project: p.data, items: i.data ?? [], people: pe.data ?? [], absences: a.data ?? [],
-      members: (m.data ?? []).map((x) => x.email),
+      members: m.data ?? [],
     } : null);
   }, [id]);
 
@@ -138,11 +140,12 @@ export function useProject(id: string) {
     return write(supabase.from("projects").update(patch).eq("id", pid));
   };
   const addMember = (email: string) => {
-    local((d) => ({ ...d, members: [...new Set([...d.members, email])].sort() }));
+    if (data?.members.some((m) => m.email === email)) return;
+    local((d) => ({ ...d, members: [...d.members, { email, last_sign_in_at: null }].sort((a, b) => a.email.localeCompare(b.email)) }));
     return write(supabase.from("project_members").insert({ project_id: pid, email }));
   };
   const removeMember = (email: string) => {
-    local((d) => ({ ...d, members: d.members.filter((m) => m !== email) }));
+    local((d) => ({ ...d, members: d.members.filter((m) => m.email !== email) }));
     return write(supabase.from("project_members").delete().eq("project_id", pid).eq("email", email));
   };
 
