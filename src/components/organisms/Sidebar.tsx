@@ -4,7 +4,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Menu } from "@base-ui/react/menu";
-import { BookOpen, CalendarDays, Diamond, GanttChart, Link2, LogOut, Monitor, Moon, Plus, Search, Settings, Sun, Users } from "lucide-react";
+import { BookOpen, CalendarDays, Diamond, GanttChart, LayoutDashboard, Link2, LogOut, Monitor, Moon, Plus, Search, Settings, Sun, Users } from "lucide-react";
 import { getTheme, setTheme, type Theme } from "@/lib/theme";
 import { supabase } from "@/lib/supabase";
 import { cx } from "@/lib/cx";
@@ -12,8 +12,9 @@ import { Kbd, Logo } from "../atoms";
 import { MenuContent, MenuItem, MenuLabel, MenuRadioItem, MenuSeparator } from "../molecules";
 import { personColor } from "../tokens";
 
-export type View = "timeline" | "equipe" | "jalons" | "absences" | "settings" | "guide";
+export type View = "dashboard" | "timeline" | "equipe" | "jalons" | "absences" | "settings" | "guide";
 export const VIEWS: { key: View; label: string; icon: ReactNode; g: string }[] = [
+  { key: "dashboard", label: "Dashboard", icon: <LayoutDashboard size={16} />, g: "D" },
   { key: "timeline", label: "Timeline", icon: <GanttChart size={16} />, g: "T" },
   { key: "equipe", label: "Équipe", icon: <Users size={16} />, g: "E" },
   { key: "jalons", label: "Jalons", icon: <Diamond size={16} />, g: "J" },

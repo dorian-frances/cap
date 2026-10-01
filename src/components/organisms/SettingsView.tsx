@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Plus, X } from "lucide-react";
-import { fmtDay } from "@/lib/plan";
+import { fmtDay, prepLeads } from "@/lib/plan";
 import type { Data, Store } from "@/lib/store";
 import { Button, Input } from "../atoms";
 import { ConfirmDialog, DatePicker, Field, IconButton } from "../molecules";
@@ -22,6 +22,20 @@ export default function SettingsView({ data, store, me }: { data: Data; store: S
         <Field inline label="Début du planning" hint="Les items s'enchaînent à partir de cette date.">
           <DatePicker label="Début du planning" className="w-72" value={data.project.start_date} onChange={(d) => d && store.updateProject({ start_date: d })} />
         </Field>
+      </Section>
+      <Section title="Dashboard" description="Combien de jours ouvrés avant le démarrage d'une tâche chaque vérification devient due.">
+        {([["business_lead_days", "Conception métier", "Règles métier et BPMN"], ["tech_lead_days", "Conception technique", "Solution technique et découpe en tickets"]] as const).map(([key, label, hint]) => {
+          const value = prepLeads(data.project)[key === "business_lead_days" ? "business" : "tech"];
+          return (
+            <Field key={key} inline label={label} hint={hint}>
+              <span className="flex items-center gap-2 text-stone-500">
+                <Input key={value} type="number" min={0} max={60} defaultValue={value} aria-label={`${label} : jours ouvrés avant le démarrage`} className="w-16 text-right tabular-nums"
+                  onBlur={(e) => { const n = Math.round(Number(e.target.value)); if (e.target.value !== "" && n >= 0 && n <= 60 && n !== value) store.updateProject({ [key]: n }); else e.target.value = String(value); }} />
+                jours ouvrés avant
+              </span>
+            </Field>
+          );
+        })}
       </Section>
       <Section title="Éditeurs" description="Ils se connectent avec leur compte Google et peuvent modifier le plan. Un·e invité·e accède au projet dès sa première connexion.">
         <div>

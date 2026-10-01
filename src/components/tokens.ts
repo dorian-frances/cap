@@ -1,6 +1,6 @@
 // Tokens utilisés en style inline (couleurs calculées à l'exécution). Le reste vit dans globals.css (@theme).
 import { Ban, Flame, Link, type LucideIcon } from "lucide-react";
-import type { Status, Tag } from "@/lib/plan";
+import type { PrepKind, Status, Tag } from "@/lib/plan";
 
 export const STATUS: Record<Status, { label: string; bar: string; border: string; text: string; key: string }> = {
   todo: { label: "À faire", bar: "var(--st-todo-bar)", border: "var(--st-todo-border)", text: "var(--st-todo-text)", key: "1" },
@@ -14,6 +14,12 @@ export const TAGS: Record<Tag, { label: string; hint: string; Icon: LucideIcon; 
   blocked: { label: "Bloqué", hint: "Ne peut pas avancer", Icon: Ban, cls: "bg-red-50 text-red-700", tone: "var(--color-red-600)" },
   risk: { label: "À risque", hint: "Incertitude à surveiller", Icon: Flame, cls: "bg-amber-100 text-amber-800", tone: "var(--color-amber-600)" },
   dependency: { label: "Dépendance", hint: "Attend une équipe, un client ou une API externe", Icon: Link, cls: "bg-(--p4-bg) text-(--p4-fg)", tone: "var(--p4-fg)" },
+};
+
+/** Vérifications avant démarrage (dashboard, panneau de l'item). */
+export const PREP: Record<PrepKind, { label: string; hint: string }> = {
+  business: { label: "Conception métier", hint: "Règles métier et BPMN" },
+  tech: { label: "Conception technique", hint: "Solution technique et découpe en tickets" },
 };
 
 export const ACCENT = "var(--color-accent-600)";

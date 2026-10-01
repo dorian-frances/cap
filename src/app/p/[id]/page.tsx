@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { ContextMenu } from "@base-ui/react/context-menu";
 import { Check, ChevronRight, Info, Link2, Plus } from "lucide-react";
-import { orderItems, overdue, overloaded, schedule, type Item, type Row } from "@/lib/plan";
+import { orderItems, overdue, overloaded, prepLeads, schedule, upcomingStarts, type Item, type Row } from "@/lib/plan";
 import { axis, type Zoom } from "@/lib/axis";
 import { useProject } from "@/lib/store";
 import { supabase } from "@/lib/supabase";
@@ -23,6 +23,7 @@ import MilestonesView from "@/components/organisms/MilestonesView";
 import AbsencesView from "@/components/organisms/AbsencesView";
 import SettingsView from "@/components/organisms/SettingsView";
 import GuideView from "@/components/organisms/GuideView";
+import DashboardView from "@/components/organisms/DashboardView";
 import { setTheme } from "@/lib/theme";
 import { useStored } from "@/lib/useStored";
 import ShareDialog from "@/components/organisms/ShareDialog";
@@ -136,7 +137,8 @@ function ProjectPage() {
 
   // --- Actions sur les Items ---
   const targets = useCallback(() => (selected.size ? [...selected] : cursor ? [cursor] : []), [selected, cursor]);
-  const openItem = (iid: string) => { setCursor(iid); setSelected(new Set([iid])); setParams({ item: iid, view: view === "timeline" || view === "equipe" ? view : "timeline" }); };
+  const withPanel = view === "timeline" || view === "equipe" || view === "dashboard";
+  const openItem = (iid: string) => { setCursor(iid); setSelected(new Set([iid])); setParams({ item: iid, view: withPanel ? view : "timeline" }); };
   const closePanel = () => setParams({ item: null });
   const siblings = (parent: string | null) => items.filter((i) => i.type === "feature" && i.parent_id === parent).sort((a, b) => a.position - b.position);
   const between = (a?: Item, b?: Item) => (a && b ? (a.position + b.position) / 2 : a ? a.position + 1 : b ? b.position - 1 : 1);
@@ -342,7 +344,14 @@ function ProjectPage() {
   return (
     <AppShell
       sidebar={<Sidebar projectId={id} projectName={data.project.name} view={view} email={me}
-        alerts={(() => { const n = overloaded(plan).size; return n ? { equipe: { count: n, label: `${n} personne${n > 1 ? "s" : ""} en surcharge` } } : {}; })()}
+        alerts={(() => {
+          const n = overloaded(plan).size;
+          const due = upcomingStarts(items, plan, prepLeads(data.project)).filter((r) => r.due.length).length;
+          return {
+            ...(due ? { dashboard: { count: due, label: `${due} démarrage${due > 1 ? "s" : ""} à préparer` } } : {}),
+            ...(n ? { equipe: { count: n, label: `${n} personne${n > 1 ? "s" : ""} en surcharge` } } : {}),
+          };
+        })()}
         onView={(v) => setParams({ view: v, item: null })} onSearch={() => setPalette(true)} onShare={() => setShare(true)} />}
       title={<>
         <span className="text-stone-500">{data.project.name}</span>
@@ -426,13 +435,15 @@ function ProjectPage() {
             onOpenItem={(iid) => { setOpenPerson(null); openItem(iid); }}
             toolbar={<TeamToolbar zoom={zoomCtl} onAbsence={() => setAbsenceDlg(true)} onPerson={() => setOpenPerson(store.addPerson("Nouvelle personne").id)} />} />
         )}
+        {view === "dashboard" && <DashboardView data={data} plan={plan} store={store} me={me} onOpenItem={openItem}
+          onOpenPerson={(pid) => { closePanel(); setParams({ view: "equipe" }); setOpenPerson(pid); }} onView={(v) => setParams({ view: v, item: null })} />}
         {view === "jalons" && <MilestonesView data={data} plan={plan} store={store} />}
         {view === "absences" && <AbsencesView data={data} store={store} onAdd={() => setAbsenceDlg(true)} />}
         {view === "settings" && <SettingsView data={data} store={store} me={me} />}
         {view === "guide" && <GuideView onView={(v) => setParams({ view: v, item: null })} onShare={() => setShare(true)} onPalette={() => setPalette(true)} />}
       </div>
 
-      {panelItem && (view === "timeline" || view === "equipe") && (
+      {panelItem && withPanel && (
         <ItemPanel item={panelItem} closing={panelClosing} data={data} plan={plan} store={store} me={me} onClose={closePanel} onOpen={openItem}
           onPick={(kind, anchor) => setPicker({ kind, ids: [panelItem.id], anchor })} onMoveUp={byStart ? undefined : () => moveBy(panelItem.id, -1)} />
       )}

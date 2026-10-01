@@ -63,6 +63,7 @@ Principe clé : **la barre n'est pas dessinée, elle est calculée** à partir d
 | P8 | Historique | « Pourquoi la date a bougé depuis le mois dernier ? » (nécessite des dates de référence figées ; couvre aussi « elle devait démarrer il y a une semaine ») | Ensuite |
 | P10 | Suivre le réel | « Qu'est-ce qui est en retard aujourd'hui, de combien, et qu'est-ce que ça décale derrière ? » | **V1** |
 | P11 | À planifier | « Qu'est-ce qui n'est pas encore planifiable, et pourquoi ? » | **V1** |
+| P12 | Préparer les démarrages | « Ce qui démarre bientôt est-il prêt : conception métier, conception technique, dépendances levées ? » | **V1** |
 | P4 | Estimé vs réel | « Nos estimations sont-elles fiables ? » (les dates réelles sont désormais enregistrées) | Ensuite |
 | P5 | Arbitrer | « Pour tenir la date X, que coupe-t-on ? » | Ensuite |
 | P6 | Jalons et dépendances | « Quels jalons sont à risque, qu'est-ce qui bloque quoi ? » | Ensuite |
@@ -153,3 +154,13 @@ Principe clé : **la barre n'est pas dessinée, elle est calculée** à partir d
 - Problème : P1, P7
 - Pour qui : PM, client
 - Résolu quand : une bascule « Priorité / Date de début » sur la timeline affiche les tâches à plat, triées par date de début (chemin du parent en préfixe) pour lire l'enchaînement en escalier ; dans cette vue on ne peut ni réordonner ni imbriquer (glisser, ⌥↑/⌥↓, Tab désactivés). La vue choisie, la couleur des barres et « Afficher les items faits » sont mémorisées sur le navigateur.
+
+### Dashboard
+- Problème : P12, P10, P6, P2
+- Pour qui : PM, tech lead
+- Résolu quand : une page « Dashboard » (barre latérale, `G` puis `D`) réunit ce qui demande une action, par ordre d'importance :
+  - **Passe-t-on nos prochains jalons ?** (carte principale, à gauche des trois autres) : le prochain jalon en grand avec son verdict, puis les trois suivants. Vert : ça passe, avec la marge du dernier item rattaché. Ambre : marge d'une semaine ouvrée ou moins (ou un item rattaché non planifié). Rouge : un item finit après, avec le retard à rattraper pour lever l'alerte et les items en cause (+n j chacun).
+  - **À vérifier avant démarrage** : les tâches qui démarrent dans les N jours ouvrés, avec deux vérifications cochables (conception métier + BPMN, conception technique + découpe en tickets). Chaque vérification est due à partir de son délai avant le démarrage, réglé dans les Paramètres (par défaut 5 et 3 jours ouvrés) ; due et pas cochée, elle est signalée. Cochée, elle garde la date et l'auteur (aussi dans le panneau de l'item).
+  - **Dépendances et blocages à lever** : les tags actifs « Dépendance » et « Bloqué » des items non terminés, par date de début, avec leur raison, leur ancienneté et un bouton « Lever ».
+  - **Dérives** : tâches en retard ou en glissement (+n j), personnes en surcharge.
+  - Chaque item ouvre son panneau ; une section vide le dit (« Rien à lever »).

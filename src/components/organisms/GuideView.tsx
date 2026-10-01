@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { ArrowRight, CalendarCheck, CalendarDays, Clock, Diamond as DiamondIcon, GanttChart, Link2, ListTodo, Search, Users } from "lucide-react";
+import { ArrowRight, CalendarCheck, CalendarDays, Clock, Diamond as DiamondIcon, GanttChart, LayoutDashboard, Link2, ListTodo, Search, Users } from "lucide-react";
 import { Button, Kbd, StatusIcon, Swatch } from "../atoms";
 import { ContentPage, Section } from "../templates";
 import { HATCH, STATUS } from "../tokens";
@@ -61,6 +61,11 @@ export default function GuideView({ onView, onShare, onPalette }: { onView: (v: 
             Les items sans owner ou sans estimation sont regroupés dans « À planifier », en bas de la timeline, avec la raison.
             Ils rejoignent le plan dès qu&apos;ils ont les deux.
           </Question>
+          <Question q="Ce qui démarre bientôt est-il prêt ?" links={go("dashboard", "Dashboard", <LayoutDashboard size={13} />)}>
+            Le Dashboard liste les tâches qui démarrent dans les prochains jours, avec deux vérifications à cocher : conception métier (+ BPMN)
+            et conception technique (+ découpe en tickets), dues un nombre de jours ouvrés avant le démarrage réglé dans les Paramètres.
+            Il réunit aussi les dépendances et blocages à lever, les jalons à venir et les dérives (retards, surcharges).
+          </Question>
           <Question q="Comment montrer l'état à tous, client compris, sans slide ?"
             links={<Button size="sm" onClick={onShare}><Link2 size={13} />Partager<ArrowRight size={12} className="text-stone-400" /></Button>}>
             Un lien en lecture seule affiche le macro-plan à jour (prochain jalon, avancement, glissements), exportable en PDF. Rien à maintenir à côté.
@@ -108,7 +113,7 @@ export default function GuideView({ onView, onShare, onPalette }: { onView: (v: 
           <Shortcut keys={["E"]}>Estimation</Shortcut>
           <Shortcut keys={["M"]}>Jalon cible</Shortcut>
           <Shortcut keys={["↑", "↓"]}>Item précédent / suivant</Shortcut>
-          <Shortcut keys={["G", "T"]}>Aller à la timeline (<Kbd>E</Kbd> équipe, <Kbd>J</Kbd> jalons, <Kbd>A</Kbd> absences)</Shortcut>
+          <Shortcut keys={["G", "T"]}>Aller à la timeline (<Kbd>D</Kbd> dashboard, <Kbd>E</Kbd> équipe, <Kbd>J</Kbd> jalons, <Kbd>A</Kbd> absences)</Shortcut>
         </div>
         <div><Button size="sm" onClick={onPalette}><Search size={13} />Ouvrir la palette</Button></div>
       </Section>

@@ -103,6 +103,12 @@ export function useProject(id: string) {
     lastUndo.current = () => { toasts.close(tid); undo(); lastUndo.current = null; };
   };
   const lastUndo = useRef<null | (() => void)>(null);
+  // Tag posé par erreur ou qui n'a plus lieu d'être : retiré de l'historique (contrairement à « Lever »), annulable.
+  const removeTag = (item: Item, tagId: string, label: string) => {
+    const prev = item.tag_log ?? [];
+    updateItems([item.id], { tag_log: prev.filter((x) => x.id !== tagId) });
+    const tid = toasts.add({ title: label, timeout: 8000, actionProps: { children: "Annuler", onClick: () => { toasts.close(tid); updateItems([item.id], { tag_log: prev }); } } });
+  };
 
   // People / absences
   const addPerson = (name: string) => {
@@ -180,7 +186,7 @@ export function useProject(id: string) {
 
   return {
     data, reload: load, saving: pending > 0, failed,
-    updateItems, addItem, deleteItems, undo: () => lastUndo.current?.(),
+    updateItems, addItem, deleteItems, removeTag, undo: () => lastUndo.current?.(),
     addPerson, updatePerson, deletePerson, addAbsences, deleteAbsence,
     updateProject, addMember, removeMember, seedExample,
   };

@@ -13,7 +13,6 @@ Stack : Next.js (tout en client components) + Supabase (Postgres, Auth, RLS). D�
 | `src/lib/axis.ts`, `calendar.ts` | Échelle de temps, grille du sélecteur de dates (testée) |
 | `src/lib/store.ts` | État d'un projet : chargement, écritures optimistes, annulation |
 | `src/lib/useStored.ts` | `useState` mémorisé dans le localStorage (préférences d'affichage) |
-| `src/lib/useStored.ts` | `useState` mémorisé dans le localStorage (préférences d'affichage) |
 | `src/app/p/[id]/page.tsx` | Page projet : assemblage, clavier, sélection, ⌘K |
 | `src/app/share/[token]/page.tsx` | Vue client en lecture seule (sans compte) |
 | `supabase/migrations/` | Schéma, RLS, `create_project`, `get_shared_project`, `project_editors` |
@@ -25,7 +24,7 @@ Stack : Next.js (tout en client components) + Supabase (Postgres, Auth, RLS). D�
 | `tokens.ts` + `globals.css` (`@theme`) | Couleurs (neutres stone, accent unique), statuts, ombres, courbes et animations | Aucune couleur ou ombre en dur ailleurs |
 | `atoms/` | Button, Input, Kbd, Avatar, StatusIcon, Diamond, Chip, Switch, Chevron, Logo, Swatch | Aucune logique métier, aucun import d'un niveau supérieur |
 | `molecules/` | Menu, Popover, Dialog/ConfirmDialog, Tooltip, IconButton, Select, SegmentedControl, Calendar, DatePicker/DateRangePicker, SidePanel, GanttBar, TimeAxis, Toast, Field… | Composent des atomes, génériques (reçoivent des données, pas le store) |
-| `organisms/` | Timeline, ItemPanel, PersonPanel, TeamView, vues Jalons/Absences/Paramètres, ItemPicker, CommandPalette, Sidebar, barres d'outils | Connaissent le domaine et le store |
+| `organisms/` | Timeline, DashboardView, ItemPanel, PersonPanel, TeamView, vues Jalons/Absences/Paramètres, ItemPicker, CommandPalette, Sidebar, barres d'outils | Connaissent le domaine et le store |
 | `templates/` | AppShell, ContentPage | Mise en page, sans données |
 
 Mouvement : popups et dialogues en fondu + échelle depuis leur ancre, panneaux latéraux qui glissent (entrée et sortie via `usePresence`), barres qui glissent vers leurs nouvelles dates quand le plan est recalculé. Tout est coupé si le système demande moins d'animations (`prefers-reduced-motion`).
@@ -52,7 +51,7 @@ UI : Tailwind v4, `@base-ui/react` (primitives accessibles), `lucide-react` (ic�
 | `⌫` puis `⌘Z` | Supprimer, annuler |
 | `1` `2` `3` | Zoom semaine / mois / trimestre |
 | `T` | Revenir à aujourd'hui |
-| `G` puis `T` `E` `J` `A` | Aller à Timeline, Équipe, Jalons, Absences |
+| `G` puis `D` `T` `E` `J` `A` | Aller à Dashboard, Timeline, Équipe, Jalons, Absences |
 
 ## Dev local
 

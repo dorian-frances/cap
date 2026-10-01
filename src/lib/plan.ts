@@ -1,6 +1,9 @@
 // Domaine Cap : types + calcul du planning. Fonctions pures, sans dépendance.
 
-export type Project = { id: string; name: string; start_date: string; share_token?: string };
+export type Project = {
+  id: string; name: string; start_date: string; share_token?: string;
+  business_lead_days?: number; tech_lead_days?: number; // délais des vérifications avant démarrage (jours ouvrés)
+};
 export type Person = { id: string; name: string; capacity: number; defect_share?: number; color?: number | null };
 
 /** Temps d'une personne disponible pour le plan : sa capacité moins sa part consacrée aux défauts. */
@@ -10,6 +13,9 @@ export type Status = "todo" | "doing" | "done";
 export type Tag = "risk" | "dependency" | "blocked";
 /** Pose d'un tag, avec sa raison ; actif tant qu'il n'est pas levé. `by` : email de l'auteur. */
 export type TagEntry = { id: string; tag: Tag; reason: string; on: string; by?: string; lifted_on?: string | null; lifted_by?: string };
+/** Vérifications avant démarrage : conception métier (+ BPMN), conception technique (+ découpe en tickets). */
+export type PrepKind = "business" | "tech";
+export type Prep = Partial<Record<PrepKind, { on: string; by?: string }>>;
 export type Item = {
   id: string;
   parent_id: string | null;
@@ -28,6 +34,7 @@ export type Item = {
   extra_jh?: number; // avenant : retard anticipé, JH ajoutés à l'estimation sans changer la fin prévue
   extra_note?: string; // motif de l'avenant
   tag_log?: TagEntry[]; // historique des tags, indicateurs sur la timeline sans effet sur le calcul
+  prep?: Prep; // vérifications faites, avec date et auteur
 };
 
 /** JH à réaliser : estimation + avenant. */
@@ -462,4 +469,65 @@ export function weekLoad(plan: Plan, person: Person, absent: Set<string>, monday
   }
   if (workdays && off === workdays) return "abs";
   return cap ? Math.round((use / cap) * 100) : 0;
+}
+
+/** Jours ouvrés d'ici `iso` (0 : aujourd'hui ou passé). */
+export const daysUntil = (iso: string, today = todayIso()) => (iso <= today ? 0 : workingDays(toIso(toDay(today) + 1), iso));
+
+/** Premier jour où une vérification de délai `lead` (jours ouvrés) est due, pour une tâche qui démarre le `start`. */
+export function dueOn(start: string, lead: number) {
+  let d = toDay(start);
+  for (let n = lead; n > 0; d--) if (!isWeekend(d)) n--;
+  return toIso(d);
+}
+
+/** Délais des vérifications du projet (jours ouvrés avant le démarrage). */
+export const prepLeads = (p: Project): Record<PrepKind, number> => ({ business: p.business_lead_days ?? 5, tech: p.tech_lead_days ?? 3 });
+
+/**
+ * Prochains démarrages : tâches non terminées qui démarrent aujourd'hui ou dans le plus long des délais, par date de début.
+ * `due` : vérifications dont l'échéance est atteinte et pas encore cochées.
+ * ponytail: vérification par tâche (feuille), pas d'héritage depuis le parent.
+ */
+export function upcomingStarts(items: Item[], plan: Plan, leads: Record<PrepKind, number>, today = todayIso()) {
+  const horizon = Math.max(leads.business, leads.tech);
+  return orderItems(items).flatMap(({ item, hasChildren }) => {
+    const span = plan.spans.get(item.id);
+    if (hasChildren || item.status === "done" || !span || span.start < today) return [];
+    const days = daysUntil(span.start, today);
+    if (days > horizon) return [];
+    const due = (["business", "tech"] as const).filter((k) => days <= leads[k] && !item.prep?.[k]);
+    return [{ item, start: span.start, days, due }];
+  }).sort((a, b) => a.start.localeCompare(b.start));
+}
+
+/** Items non terminés avec une dépendance ou un blocage actif, par date de début (non planifiés en dernier). */
+export function toLift(items: Item[], plan: Plan) {
+  return orderItems(items).flatMap(({ item, hasChildren }) => {
+    const tags = openTags(item).filter((t) => t.tag !== "risk");
+    if (!tags.length || (!hasChildren && item.status === "done")) return [];
+    return [{ item, start: plan.spans.get(item.id)?.start ?? null, tags }];
+  }).sort((a, b) => (a.start ?? "\uffff").localeCompare(b.start ?? "\uffff"));
+}
+
+/** Marge (jours ouvrés) en dessous de laquelle, incluse, un jalon est serré : une semaine. */
+export const TIGHT_MARGIN = 5;
+
+/**
+ * Jalons à venir : items rattachés, en retard (du plus en retard au moins), non planifiés, marge du dernier item.
+ * `tone` : late (un item finit après), tight (marge ≤ une semaine ou item non planifié), ok, none (rien de rattaché).
+ */
+export function upcomingMilestones(items: Item[], plan: Plan, today = todayIso()) {
+  return items.filter((m) => m.type === "milestone" && m.milestone_date && m.milestone_date >= today)
+    .sort((a, b) => a.milestone_date!.localeCompare(b.milestone_date!))
+    .map((m) => {
+      const targeted = items.filter((i) => i.target_id === m.id);
+      const late = targeted.map((item) => ({ item, n: lateBy(item, plan.spans.get(item.id), items) })).filter((x) => x.n > 0).sort((a, b) => b.n - a.n);
+      const ends = targeted.flatMap((i) => plan.spans.get(i.id)?.end ?? []).sort();
+      const last = ends.at(-1);
+      const unplanned = targeted.length - ends.length;
+      const margin = last && last < m.milestone_date! ? workingDays(toIso(toDay(last) + 1), m.milestone_date!) : 0;
+      const tone = !targeted.length ? "none" : late.length ? "late" : unplanned || margin <= TIGHT_MARGIN ? "tight" : "ok";
+      return { milestone: m, targeted: targeted.length, late, worst: late[0]?.n ?? 0, unplanned, margin, tone } as const;
+    });
 }

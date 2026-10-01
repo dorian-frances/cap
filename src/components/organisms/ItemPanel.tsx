@@ -2,16 +2,17 @@
 
 import { ArrowRight, CalendarCheck, CalendarDays, Check, ChevronRight, CircleSlash, Clock, Divide, Link2, Play, Plus, Trash2, TriangleAlert, X } from "lucide-react";
 import {
-  absentSet, allocationOn, itemOverload, isWeekend, pctLabel, toIso, lateBy, overdue, slip, toDay, todayIso, totalJh, unplannedReason, workJh, workingDays, fmtDay,
+  absentSet, allocationOn, dueOn, prepLeads, itemOverload, isWeekend, pctLabel, toIso, lateBy, overdue, slip, toDay, todayIso, totalJh, unplannedReason, workJh, workingDays, fmtDay,
   type Item, type Plan, type TagEntry,
 } from "@/lib/plan";
 import type { Data, Store } from "@/lib/store";
 import { cx } from "@/lib/cx";
 import type { PickKind } from "./Timeline";
 import { Avatar, Button, Chip, Diamond, InlineTextarea, Kbd, StatusIcon, Textarea } from "../atoms";
-import { IconButton, SectionTitle, SidePanel, SidePanelBody, toasts } from "../molecules";
+import { IconButton, SectionTitle, SidePanel, SidePanelBody } from "../molecules";
 import AllocationControl, { withAllocation } from "./AllocationControl";
-import { STATUS, TAGS } from "../tokens";
+import { PrepToggle } from "./DashboardView";
+import { PREP, STATUS, TAGS } from "../tokens";
 
 type Props = {
   item: Item;
@@ -52,11 +53,7 @@ export default function ItemPanel({ item, data, plan, store, me, closing, onClos
   const log = [...(item.tag_log ?? [])].sort((a, b) => Number(!!a.lifted_on) - Number(!!b.lifted_on) || (b.lifted_on ?? b.on).localeCompare(a.lifted_on ?? a.on));
   const setLog = (next: TagEntry[]) => store.updateItems([item.id], { tag_log: next });
   const lift = (e: TagEntry) => setLog((item.tag_log ?? []).map((x) => (x.id === e.id ? { ...x, lifted_on: today, lifted_by: me } : x)));
-  const removeEntry = (e: TagEntry) => {
-    const prev = item.tag_log ?? [];
-    setLog(prev.filter((x) => x.id !== e.id));
-    const tid = toasts.add({ title: `Tag « ${TAGS[e.tag].label} » supprimé`, timeout: 8000, actionProps: { children: "Annuler", onClick: () => { toasts.close(tid); setLog(prev); } } });
-  };
+  const removeEntry = (e: TagEntry) => store.removeTag(item, e.id, `Tag « ${TAGS[e.tag].label} » supprimé`);
   const who = (email?: string) => (email ? ` par ${email.split("@")[0]}` : "");
   const crumbs: Item[] = [];
   for (let p = items.find((i) => i.id === item.parent_id); p; p = items.find((i) => i.id === p!.parent_id)) crumbs.unshift(p);
@@ -213,6 +210,21 @@ export default function ItemPanel({ item, data, plan, store, me, closing, onClos
             </ul>
           )}
         </section>
+
+        {!isParent && item.status !== "done" && (
+          <section className="flex flex-col gap-2">
+            <SectionTitle>Préparation</SectionTitle>
+            {(["business", "tech"] as const).map((k) => {
+              const from = span ? dueOn(span.start, prepLeads(data.project)[k]) : undefined;
+              return (
+                <div key={k} className="flex items-center justify-between gap-3 text-[13px]">
+                  <div><div>{PREP[k].label}</div><div className="text-xs text-stone-400">{PREP[k].hint}</div></div>
+                  <PrepToggle item={item} kind={k} due={!!from && from <= today} from={from && from > today ? from : undefined} store={store} me={me} />
+                </div>
+              );
+            })}
+          </section>
+        )}
 
         {behind && (
           <div className="flex animate-rise-in flex-col gap-2 rounded-lg border border-amber-200/70 bg-amber-50/70 px-3.5 py-3 text-[13px]">

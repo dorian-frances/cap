@@ -1,7 +1,7 @@
 // node --test src/lib/plan.test.ts
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { schedule as run, allocationOn, itemOverload, pauses, startBefore, overloaded, weekOverload, isLate, lateBy, overdue, slip, totalJh, activeTags, unplannedReason, weekLoad, absentSet, toDay, type Item } from "./plan.ts";
+import { schedule as run, allocationOn, itemOverload, pauses, startBefore, overloaded, weekOverload, isLate, lateBy, overdue, slip, totalJh, activeTags, unplannedReason, weekLoad, absentSet, toDay, daysUntil, dueOn, upcomingStarts, toLift, upcomingMilestones, type Item } from "./plan.ts";
 
 const MON = "2026-09-28"; // lundi
 const A = { id: "a", name: "A", capacity: 1 };
@@ -287,4 +287,43 @@ test("tags actifs : non levés, ceux des descendants pour un parent", () => {
   const q = item({ parent_id: p.id });
   const items = [p, q, item({ parent_id: p.id, tag_log: [e("1", "risk"), e("2", "blocked", MON)] }), item({ parent_id: q.id, tag_log: [e("3", "blocked")] })];
   assert.deepEqual(activeTags(items, p.id).map((x) => x.id).sort(), ["1", "3"]);
+});
+
+test("prochains démarrages : vérifications dues selon leur délai, cochées exclues", () => {
+  assert.equal(daysUntil("2026-10-05", "2026-09-28"), 5); // lundi suivant : 5 jours ouvrés
+  assert.equal(daysUntil(MON, MON), 0);
+  assert.equal(dueOn("2026-10-05", 5), MON);
+  assert.equal(dueOn("2026-10-05", 0), "2026-10-05");
+  const x = item({ estimate_jh: 5, owner_ids: ["a"] }); // 28 sept. → 2 oct.
+  const y = item({ estimate_jh: 2, owner_ids: ["a"] }); // 5 oct. : dans 5 j
+  const z = item({ estimate_jh: 2, owner_ids: ["a"], prep: { business: { on: MON } } }); // 7 oct. : dans 7 j, hors horizon
+  const plan = schedule([x, y, z], [A], [], MON, MON);
+  const rows = upcomingStarts([x, y, z], plan, { business: 5, tech: 3 }, MON);
+  assert.deepEqual(rows.map((r) => [r.item.id, r.days, r.due]), [[x.id, 0, ["business", "tech"]], [y.id, 5, ["business"]]]);
+  assert.deepEqual(upcomingStarts([x, y, z], plan, { business: 7, tech: 3 }, MON).at(-1)!.due, []);
+});
+
+test("à lever : dépendances et blocages actifs, risques et items terminés exclus", () => {
+  const e = (tag: "risk" | "blocked" | "dependency", lifted_on?: string) => ({ id: tag, tag, reason: "", on: MON, lifted_on });
+  const x = item({ estimate_jh: 1, owner_ids: ["a"], tag_log: [e("risk"), e("dependency")] });
+  const y = item({ estimate_jh: 1, owner_ids: ["a"], tag_log: [e("blocked", MON)] });
+  const z = item({ status: "done", tag_log: [e("blocked")] });
+  const w = item({ tag_log: [e("blocked")] }); // non planifié : en dernier
+  const items = [w, x, y, z];
+  assert.deepEqual(toLift(items, schedule(items, [A], [], MON, MON)).map((r) => [r.item.id, r.tags.map((t) => t.tag)]), [[x.id, ["dependency"]], [w.id, ["blocked"]]]);
+});
+
+test("jalons à venir : retard, non planifiés, marge du dernier item", () => {
+  const m = item({ type: "milestone", milestone_date: "2026-10-05" });
+  const x = item({ estimate_jh: 5, owner_ids: ["a"], target_id: m.id }); // fin 2 oct.
+  const y = item({ target_id: m.id });
+  const items = [m, x, y];
+  const r = upcomingMilestones(items, schedule(items, [A], [], MON, MON), MON)[0];
+  assert.deepEqual([r.targeted, r.late.length, r.unplanned, r.margin, r.tone], [2, 0, 1, 1, "tight"]);
+  const far = item({ type: "milestone", milestone_date: "2026-10-12" }); // 6 j après la fin de x : ok
+  const ok = upcomingMilestones([far, { ...x, target_id: far.id }], schedule([far, x], [A], [], MON, MON), MON)[0];
+  assert.deepEqual([ok.margin, ok.tone], [6, "ok"]);
+  const z = item({ estimate_jh: 8, owner_ids: ["a"], target_id: m.id });
+  const late = upcomingMilestones([m, z], schedule([m, z], [A], [], MON, MON), MON)[0];
+  assert.deepEqual([late.late.length, late.worst, late.margin, late.tone], [1, 2, 0, "late"]);
 });
