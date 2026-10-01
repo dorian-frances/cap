@@ -163,4 +163,5 @@ Principe clé : **la barre n'est pas dessinée, elle est calculée** à partir d
   - **À vérifier avant démarrage** : les tâches qui démarrent dans les N jours ouvrés, avec deux vérifications cochables (conception métier + BPMN, conception technique + découpe en tickets). Chaque vérification est due à partir de son délai avant le démarrage, réglé dans les Paramètres (par défaut 5 et 3 jours ouvrés) ; due et pas cochée, elle est signalée. Cochée, elle garde la date et l'auteur (aussi dans le panneau de l'item).
   - **Dépendances et blocages à lever** : les tags actifs « Dépendance » et « Bloqué » des items non terminés, par date de début, avec leur raison, leur ancienneté et un bouton « Lever ».
   - **Dérives** : tâches en retard ou en glissement (+n j), personnes en surcharge.
+  - Chaque carte de synthèse a un point de la couleur de son état (vert : rien à faire, ambre : action à mener, rouge : problème aujourd'hui) et un texte factuel (« Marge de 6 j ouvrés », « 3 j ouvrés de retard à rattraper »), sans commentaire.
   - Chaque item ouvre son panneau ; une section vide le dit (« Rien à lever »).

@@ -9,7 +9,7 @@ import {
 import type { Data, Store } from "@/lib/store";
 import { cx } from "@/lib/cx";
 import { Avatar, Button, Diamond, StatusIcon } from "../atoms";
-import { AvatarStack, IconButton, StatCard, Tooltip } from "../molecules";
+import { AvatarStack, IconButton, StatCard, TONE_DOT, Tooltip, type CardTone } from "../molecules";
 import { ContentPage } from "../templates/ContentPage";
 import { PREP, TAGS } from "../tokens";
 import type { View } from "./Sidebar";
@@ -61,6 +61,11 @@ export default function DashboardView({ data, plan, store, me, onOpenItem, onOpe
     .map(({ item }) => ({ item, span: plan.spans.get(item.id)!, n: slip(plan.spans.get(item.id)) })).sort((a, b) => b.n - a.n);
   const over = [...overloaded(plan, today)].flatMap(([id, o]) => { const p = people.find((x) => x.id === id); return p ? [{ p, ...o }] : []; });
 
+  // État de chaque carte : rouge = problème aujourd'hui, ambre = action à mener, vert = rien à faire.
+  const prepTone: CardTone = starts.some((r) => r.due.length && r.days === 0) ? "bad" : dueChecks ? "warn" : "ok";
+  const liftTone: CardTone = liftSoon ? "bad" : lift.length ? "warn" : "ok";
+  const driftTone: CardTone = over.length || late.some((r) => r.span.planned! < today) ? "bad" : late.length ? "warn" : "ok";
+
   const ownersOf = (i: Item) => people.filter((p) => i.owner_ids.includes(p.id));
   const parentPath = (i: Item) => {
     const out: string[] = [];
@@ -78,8 +83,7 @@ export default function DashboardView({ data, plan, store, me, onOpenItem, onOpe
   );
 
   return (
-    <ContentPage title="Dashboard" width="max-w-5xl"
-      description={`Ce qui demande une action, du plus urgent au moins urgent · au ${fmtDay(today, true)}`}>
+    <ContentPage title="Dashboard" width="max-w-5xl">
       <div className="grid gap-3 lg:grid-cols-3">
         <section aria-label="Prochains jalons" className="flex animate-rise-in flex-col gap-4 rounded-[10px] border border-stone-200/80 bg-surface px-5 py-4 lg:col-span-2 lg:row-span-3">
           <div className="flex items-center justify-between">
@@ -119,18 +123,15 @@ export default function DashboardView({ data, plan, store, me, onOpenItem, onOpe
                 ))}
               </div>
             )}
-          </> : <p className="text-[13px] text-stone-500">Aucun jalon à venir. Ajoutez la prochaine démo ou mise en production pour savoir si elle passe.</p>}
+          </> : <p className="text-[13px] text-stone-500">Aucun jalon à venir.</p>}
         </section>
-        <StatCard href="#demarrages" label="À vérifier avant démarrage" value={dueChecks ? plural(dueChecks, "vérification") : "Tout est prêt"}
-          note={<Note tone={dueChecks ? "warn" : "muted"}>{plural(starts.length, "démarrage")} d&apos;ici {horizon} j ouvrés</Note>} />
-        <StatCard href="#dependances" label="Dépendances et blocages" value={lift.length ? `${lift.length} à lever` : "Rien à lever"}
-          note={liftSoon ? <Note tone="bad">{liftSoon} sur des tâches qui démarrent d&apos;ici {horizon} j</Note> : <Note tone="muted">Aucune sur un démarrage proche</Note>} />
-        <StatCard href="#derives" label="Dérives" value={late.length || over.length ? `${plural(late.length, "retard")} · ${plural(over.length, "surcharge")}` : "Aucune"}
-          note={<Note tone={late.length || over.length ? "warn" : "muted"}>Glissements sur la fin prévue, personnes au-delà de 100 %</Note>} />
+        <StatCard href="#demarrages" tone={prepTone} label="À vérifier avant démarrage" value={dueChecks ? plural(dueChecks, "vérification") : "Tout est prêt"} />
+        <StatCard href="#dependances" tone={liftTone} label="Dépendances et blocages" value={lift.length ? `${lift.length} à lever` : "Rien à lever"}
+          note={liftSoon > 0 && <Note tone="bad">{liftSoon} sur un démarrage proche</Note>} />
+        <StatCard href="#derives" tone={driftTone} label="Dérives" value={late.length || over.length ? `${plural(late.length, "retard")} · ${plural(over.length, "surcharge")}` : "Aucune"} />
       </div>
 
       <Block id="demarrages" title="Prochains démarrages" count={starts.length}
-        description={<>Tâches qui démarrent d&apos;ici {horizon} jours ouvrés. Conception métier due {leads.business} j avant, technique {leads.tech} j avant.</>}
         action={<Button size="sm" variant="ghost" onClick={() => onView("settings")}><Settings size={12} />Délais</Button>}>
         {starts.length ? <>
           <div className="grid grid-cols-[96px_minmax(0,1fr)_64px_150px_150px] items-center gap-3 px-4 py-2 text-[11px] text-stone-400">
@@ -144,11 +145,10 @@ export default function DashboardView({ data, plan, store, me, onOpenItem, onOpe
               {KINDS.map((k) => <PrepToggle key={k} item={item} kind={k} due={due.includes(k)} from={dueOn(start, leads[k])} store={store} me={me} />)}
             </div>
           ))}
-        </> : <Empty>Aucune tâche ne démarre d&apos;ici {horizon} jours ouvrés.</Empty>}
+        </> : <Empty>Aucun démarrage d&apos;ici {horizon} j ouvrés.</Empty>}
       </Block>
 
-      <Block id="dependances" title="Dépendances et blocages à lever" count={lift.length}
-        description="Tags actifs sur les items non terminés, par date de début. « Lever » quand c'est résolu (gardé dans l'historique), la corbeille si ça n'a plus lieu d'être.">
+      <Block id="dependances" title="Dépendances et blocages à lever" count={lift.length}>
         {lift.length ? lift.map(({ item, start, tag: e }) => {
           const { label, Icon, cls } = TAGS[e.tag];
           const started = !!start && start <= today && item.status !== "todo";
@@ -173,7 +173,7 @@ export default function DashboardView({ data, plan, store, me, onOpenItem, onOpe
         }) : <Empty>Rien à lever.</Empty>}
       </Block>
 
-      <Block id="derives" title="Dérives" count={late.length + over.length} description="Ce qui glisse déjà, et ce qui ne peut pas tenir.">
+      <Block id="derives" title="Dérives" count={late.length + over.length}>
         <div className="grid divide-y divide-stone-100 sm:grid-cols-2 sm:divide-x sm:divide-y-0">
           <div className="flex flex-col">
             <h3 className="px-4 pb-1 pt-2.5 text-[11px] text-stone-400">Retards et glissements</h3>
@@ -184,7 +184,7 @@ export default function DashboardView({ data, plan, store, me, onOpenItem, onOpe
                 <span className="shrink-0 text-xs text-stone-500">{span.planned! < today ? "En retard" : "Glissement prévu"}</span>
                 <span className="shrink-0 rounded-[4px] bg-amber-100 px-1 text-[11px] font-medium leading-4 tabular-nums text-amber-800">+{n} j</span>
               </div>
-            )) : <Empty>Toutes les tâches tiennent leur fin prévue.</Empty>}
+            )) : <Empty>Aucun retard.</Empty>}
           </div>
           <div className="flex flex-col">
             <h3 className="px-4 pb-1 pt-2.5 text-[11px] text-stone-400">Surcharges</h3>
@@ -195,7 +195,7 @@ export default function DashboardView({ data, plan, store, me, onOpenItem, onOpe
                 <span className="shrink-0 text-xs tabular-nums text-stone-500">du {fmtDay(toIso(from))} au {fmtDay(toIso(to))}</span>
                 <span className="shrink-0 rounded-[4px] bg-red-50 px-1 text-[11px] font-medium leading-4 tabular-nums text-red-700">{Math.round(peak * 100)} %</span>
               </button>
-            )) : <Empty>Personne au-delà de 100 %.</Empty>}
+            )) : <Empty>Aucune surcharge.</Empty>}
           </div>
         </div>
       </Block>
@@ -203,17 +203,17 @@ export default function DashboardView({ data, plan, store, me, onOpenItem, onOpe
   );
 }
 
-/** Verdict d'un jalon : passe (vert), passe de justesse (ambre, marge ≤ une semaine), ne passe pas (rouge, retard à rattraper). */
+/** Verdict d'un jalon, factuel : marge (vert, ambre si ≤ une semaine) ou retard à rattraper (rouge). */
 function Verdict({ m, big }: { m: ReturnType<typeof upcomingMilestones>[number]; big?: boolean }) {
   const days = (n: number) => `${n} j ouvré${n > 1 ? "s" : ""}`;
   const unplanned = m.unplanned ? ` · ${m.unplanned} item${m.unplanned > 1 ? "s" : ""} non planifié${m.unplanned > 1 ? "s" : ""}` : "";
   const [tone, text] = {
-    ok: ["ok", big ? `Ça passe · marge de ${days(m.margin)}` : `Passe · marge ${m.margin} j`],
-    tight: ["warn", (big ? `Ça passe de justesse · marge de ${days(m.margin)}` : `Juste · marge ${m.margin} j`) + unplanned],
-    late: ["bad", (big ? `Ça ne passe pas · ${days(m.worst)} de retard à rattraper` : `+${m.worst} j à rattraper`) + (big ? ` (${m.late.length} item${m.late.length > 1 ? "s" : ""} sur ${m.targeted})` : "")],
+    ok: ["ok", big ? `Marge de ${days(m.margin)}` : `Marge ${m.margin} j`],
+    tight: ["warn", (big ? `Marge de ${days(m.margin)}` : `Marge ${m.margin} j`) + unplanned],
+    late: ["bad", big ? `${days(m.worst)} de retard à rattraper` : `+${m.worst} j à rattraper`],
     none: ["muted", "Aucun item rattaché"],
   }[m.tone] as [Tone, string];
-  const dot = { ok: "bg-green-600", warn: "bg-amber-600", bad: "bg-red-600", muted: "bg-stone-300" }[tone];
+  const dot = tone === "muted" ? "bg-stone-300" : TONE_DOT[tone];
   return (
     <span className={cx("inline-flex items-center gap-2", TONE[tone], big ? "text-[15px] font-semibold" : "text-xs font-medium")}>
       <span className={cx("shrink-0 rounded-full", dot, big ? "size-2.5" : "size-2")} />{text}
@@ -221,13 +221,10 @@ function Verdict({ m, big }: { m: ReturnType<typeof upcomingMilestones>[number];
   );
 }
 
-const Block = ({ id, title, count, description, action, children }: { id: string; title: string; count: number; description: ReactNode; action?: ReactNode; children: ReactNode }) => (
+const Block = ({ id, title, count, action, children }: { id: string; title: string; count: number; action?: ReactNode; children: ReactNode }) => (
   <section id={id} className="flex scroll-mt-6 flex-col gap-2.5">
-    <div className="flex items-end gap-3">
-      <div className="flex-1">
-        <h2 className="flex items-baseline gap-1.5 text-[15px] font-semibold tracking-tight">{title}<span className="text-xs font-normal tabular-nums text-stone-400">{count}</span></h2>
-        <p className="mt-0.5 text-[13px] text-stone-500">{description}</p>
-      </div>
+    <div className="flex items-center gap-3">
+      <h2 className="flex flex-1 items-baseline gap-1.5 text-[15px] font-semibold tracking-tight">{title}<span className="text-xs font-normal tabular-nums text-stone-400">{count}</span></h2>
       {action}
     </div>
     <div className="flex flex-col divide-y divide-stone-100 overflow-hidden rounded-[10px] border border-stone-200/80 bg-surface">{children}</div>
