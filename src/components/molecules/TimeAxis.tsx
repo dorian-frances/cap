@@ -21,10 +21,10 @@ export function AxisHeader({ ax, milestones, items, plan }: { ax: Axis; mileston
       ))}
       {ax.ticks.map((t) => (
         <div key={t.left} className="absolute h-7 whitespace-nowrap border-l border-stone-100 leading-7" style={{ left: t.left, top: 28 + lane, width: t.width, paddingLeft: ax.px >= 12 ? 6 : 3 }}>
-          {t.sub && <span className="text-stone-300">{t.sub}</span>} {t.label}
+          {t.sub && <span className="text-stone-400">{t.sub}</span>} {t.label}
         </div>
       ))}
-      <div className="absolute flex h-[18px] min-w-[18px] -translate-x-1/2 items-center justify-center rounded-full bg-accent-600 px-1 text-[11px] font-medium text-white"
+      <div className="absolute flex h-[18px] min-w-[18px] -translate-x-1/2 items-center justify-center rounded-full bg-accent-solid px-1 text-[11px] font-medium text-white"
         style={{ left: (ax.today - ax.from) * ax.px + ax.px / 2, top: 33 + lane }} title="Aujourd'hui">
         {new Date(ax.today * 86_400_000).getUTCDate()}
       </div>

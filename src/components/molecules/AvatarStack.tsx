@@ -2,9 +2,9 @@ import type { Person } from "@/lib/plan";
 import { Avatar } from "../atoms/Avatar";
 
 /** Avatars superposés, avec « +n » au-delà de `max`. */
-export function AvatarStack({ people, max = 3, ring, size = 20, faded }: { people: Person[]; max?: number; ring?: string; size?: number; faded?: boolean }) {
+export function AvatarStack({ people, max = 3, ring, size = 20 }: { people: Person[]; max?: number; ring?: string; size?: number }) {
   return (
-    <span className={`flex items-center ${faded ? "opacity-60" : ""}`}>
+    <span className="flex items-center">
       {people.slice(0, max).map((p, i) => (
         <span key={p.id} style={{ marginLeft: i ? -5 : 0 }}><Avatar person={p} ring={ring} size={size} /></span>
       ))}

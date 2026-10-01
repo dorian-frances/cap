@@ -74,6 +74,7 @@ function ProjectPage() {
   const [absenceDlg, setAbsenceDlg] = useState(false);
   const [colorBy, setColorBy] = useStored<"status" | "owner">("cap:colorBy", "status");
   const [showDone, setShowDone] = useStored("cap:showDone", true);
+  const [navCollapsed, setNavCollapsed] = useStored("cap:navCollapsed", false);
   // « start » : vue escalier, items à plat triés par date de début ; la priorité n'y est pas modifiable.
   const [sortBy, setSortBy] = useStored<"priority" | "start">("cap:sortBy", "priority");
   const byStart = sortBy === "start";
@@ -258,6 +259,7 @@ function ProjectPage() {
     if (k === "g") { gPressed.current = Date.now(); return; }
     if (k === "1" || k === "2" || k === "3") { setParams({ zoom: (["semaine", "mois", "trimestre"] as Zoom[])[Number(k) - 1] }); return; }
     if (k === "t") { scrollToToday(); return; }
+    if (k === "[") { setNavCollapsed((c) => !c); return; }
     if (view !== "timeline") { if (k === "Escape") { closePanel(); setOpenPerson(null); } return; }
     const idx = cursor ? order.indexOf(cursor) : -1;
     const go = (i: number) => {
@@ -333,6 +335,7 @@ function ProjectPage() {
     { id: "z1", group: "Vue", label: "Zoom semaine", keys: ["1"], run: () => setParams({ zoom: "semaine" }) },
     { id: "z2", group: "Vue", label: "Zoom mois", keys: ["2"], run: () => setParams({ zoom: "mois" }) },
     { id: "z3", group: "Vue", label: "Zoom trimestre", keys: ["3"], run: () => setParams({ zoom: "trimestre" }) },
+    { id: "nav", group: "Vue", label: navCollapsed ? "Déplier la barre latérale" : "Réduire la barre latérale", keys: ["["], keywords: "sidebar menu navigation place", run: () => setNavCollapsed((c) => !c) },
     { id: "today", group: "Vue", label: "Revenir à aujourd'hui", keys: ["T"], run: scrollToToday },
     ...features.map((f) => ({ id: `item-${f.id}`, group: "Items", label: f.title || "Sans titre", icon: <StatusIcon status={f.status} />, run: () => openItem(f.id) })),
   ];
@@ -352,7 +355,8 @@ function ProjectPage() {
             ...(n ? { equipe: { count: n, label: `${n} personne${n > 1 ? "s" : ""} en surcharge` } } : {}),
           };
         })()}
-        onView={(v) => setParams({ view: v, item: null })} onSearch={() => setPalette(true)} onShare={() => setShare(true)} />}
+        onView={(v) => setParams({ view: v, item: null })} onSearch={() => setPalette(true)} onShare={() => setShare(true)}
+        collapsed={navCollapsed} onToggle={() => setNavCollapsed((c) => !c)} />}
       title={<>
         <span className="text-stone-500">{data.project.name}</span>
         <ChevronRight size={12} className="text-stone-300" />

@@ -16,6 +16,10 @@
   --color-accent-600: #5b5bd6;
   --color-accent-700: #4a4abf;
   --color-accent-800: #3b3b9c;
+  --color-accent-solid: #5b5bd6; /* fond plein sous un texte blanc */
+  /* Neutres discrets et secondaires assombris par rapport à Tailwind : texte à ≥ 4,5:1 jusque sur la barre latérale et stone-100. */
+  --color-stone-400: #736c66;
+  --color-stone-500: #655e58;
   --color-canvas: #fafaf9;
   --color-sidebar: #f4f3f1;
   --color-surface: #ffffff; /* fond des pages, panneaux, menus */
@@ -46,7 +50,7 @@
 :root {
   --st-todo-bar: #f0eeeb; --st-todo-border: #e0dcd7; --st-todo-text: #57534e;
   --st-doing-bar: #fcebd0; --st-doing-border: #f4d4a2; --st-doing-text: #8a4a0b;
-  --st-done-bar: #ddf2e3; --st-done-border: #bfe3ca; --st-done-text: #1f6b3a;
+  --st-done-bar: #ddf2e3; --st-done-border: #bfe3ca; --st-done-text: #1a5c31;
   --hatch-late: repeating-linear-gradient(135deg,rgba(220,38,38,.30) 0 2px,rgba(253,236,236,.95) 2px 5px);
   --hatch-late-border: #f0a8a8;
   --hatch-overrun: repeating-linear-gradient(135deg,rgba(217,119,6,.32) 0 2px,rgba(254,243,199,.95) 2px 5px);
@@ -66,7 +70,8 @@
  * Mode sombre « cendré » (gris bleutés doux, façon Discord) : on redéfinit les échelles Tailwind
  * utilisées par l'app. Les neutres sont inversés (50 = survol sombre, 900 = texte clair),
  * les teintes gardent leur rôle (50/100 = fond d'alerte, 700/800 = texte lisible dessus).
- * Contrastes sur le fond #313338 : texte 17:1, secondaire (stone-500) 4.9:1, discret (stone-400) 3.9:1.
+ * Contrastes (AA, ≥ 4,5:1) : discret (stone-400) 5,2:1 sur le fond #313338 et ≥ 4,5:1 sur les survols (stone-50) et la ligne
+ * sélectionnée (accent-50) ; secondaire (stone-500) ≥ 4,5:1 jusque sur stone-100 (onglets, pastilles).
  */
 :root[data-theme="dark"] {
   color-scheme: dark;
@@ -75,10 +80,11 @@
   --color-canvas: #2b2d31;
   --color-sidebar: #2b2d31;
   --color-stone-50: #383a40; --color-stone-100: #3f4147; --color-stone-200: #4a4c53; --color-stone-300: #5d6069;
-  --color-stone-400: #8b9099; --color-stone-500: #9ba1ab; --color-stone-600: #b5bac1; --color-stone-700: #c9cdd3;
+  --color-stone-400: #a1a6ae; --color-stone-500: #adb2ba; --color-stone-600: #bec2c8; --color-stone-700: #c9cdd3;
   --color-stone-800: #dbdee1; --color-stone-900: #ebedef; --color-stone-950: #f5f6f7;
   --color-accent-50: #36395a; --color-accent-100: #3e4270; --color-accent-200: #4c5090; --color-accent-300: #6468bd;
   --color-accent-400: #8589e6; --color-accent-500: #9296f0; --color-accent-600: #6d71e8; --color-accent-700: #b3b6fa; --color-accent-800: #d2d4ff;
+  --color-accent-solid: #5f63de; /* plus sombre que accent-600 : texte blanc à 4,8:1 */
   --color-red-50: #3b2528; --color-red-100: #4a2a2e; --color-red-200: #6a3339; --color-red-300: #8f434a; --color-red-400: #e06c75;
   --color-red-600: #e5484d; --color-red-700: #ff9592; --color-red-800: #ffb3b0;
   --color-amber-50: #3a3021; --color-amber-100: #4a3b20; --color-amber-200: #614b24; --color-amber-300: #7d6128;

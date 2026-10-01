@@ -51,6 +51,7 @@ UI : Tailwind v4, `@base-ui/react` (primitives accessibles), `lucide-react` (ic�
 | `⌫` puis `⌘Z` | Supprimer, annuler |
 | `1` `2` `3` | Zoom semaine / mois / trimestre |
 | `T` | Revenir à aujourd'hui |
+| `[` | Réduire / déplier la barre latérale |
 | `G` puis `D` `T` `E` `J` `A` | Aller à Dashboard, Timeline, Équipe, Jalons, Absences |
 
 ## Dev local

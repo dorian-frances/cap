@@ -27,7 +27,7 @@ export function GanttBar({ ax, span, label, tone, lateFrom, pauses = [], top, he
   return (
     <>
       <div title={title} className={cx("absolute truncate rounded-[5px] px-2 text-xs font-medium", motion)}
-        style={{ left, width, top, height, lineHeight: `${height}px`, background: tone.bar, color: tone.text, opacity: faded ? 0.75 : 1, boxShadow: `inset 0 0 0 1px ${tone.border}${selected ? `, 0 0 0 2px ${ACCENT}` : ""}` }}>
+        style={{ left, width, top, height, lineHeight: `${height}px`, background: tone.bar, color: tone.text, opacity: faded ? 0.85 : 1, boxShadow: `inset 0 0 0 1px ${tone.border}${selected ? `, 0 0 0 2px ${ACCENT}` : ""}` }}>
         {fits && label}
       </div>
       {run > 0 && run < left + width && (

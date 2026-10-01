@@ -53,7 +53,7 @@ export function MenuItem({ icon, kbd, danger, children, ...props }: Menu.Item.Pr
 export function MenuCheckboxItem({ children, trailing, ...props }: Menu.CheckboxItem.Props & { trailing?: ReactNode }) {
   return (
     <Menu.CheckboxItem closeOnClick={false} className={cx("group", itemCls)} {...props}>
-      <span className="flex size-3.5 shrink-0 items-center justify-center rounded border border-stone-300 transition-colors duration-100 group-data-[checked]:border-accent-600 group-data-[checked]:bg-accent-600">
+      <span className="flex size-3.5 shrink-0 items-center justify-center rounded border border-stone-300 transition-colors duration-100 group-data-[checked]:border-accent-solid group-data-[checked]:bg-accent-solid">
         <Menu.CheckboxItemIndicator keepMounted className="transition-[opacity,scale] duration-150 ease-out-quint data-[unchecked]:scale-50 data-[unchecked]:opacity-0">
           <Check size={10} strokeWidth={3} className="text-white" />
         </Menu.CheckboxItemIndicator>

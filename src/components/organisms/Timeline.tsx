@@ -194,14 +194,14 @@ export default function Timeline({ scrollRef, ...p }: Props) {
           ) : (
             <button data-cell="estimate" aria-label="Estimation" onClick={(e) => { e.stopPropagation(); p.onPick("estimate", item.id, e.currentTarget); }}
               title={Number(item.extra_jh) ? `Estimation ${Number(item.estimate_jh).toLocaleString("fr-FR")} j + avenant ${Number(item.extra_jh).toLocaleString("fr-FR")} j = ${workJh(item).toLocaleString("fr-FR")} j` : undefined}
-              className={cx(cellBtn, "min-w-11 justify-end whitespace-nowrap text-xs tabular-nums", Number(item.estimate_jh) ? "text-stone-500" : "text-stone-300")}>
+              className={cx(cellBtn, "min-w-11 justify-end whitespace-nowrap text-xs tabular-nums", Number(item.estimate_jh) ? "text-stone-500" : "text-stone-400")}>
               {Number(item.estimate_jh) ? Number(item.estimate_jh).toLocaleString("fr-FR") : "–"}
               {Number(item.extra_jh) > 0 && <span className="text-amber-700">+{Number(item.extra_jh).toLocaleString("fr-FR")}</span>}&nbsp;j
             </button>
           )}
           {hasChildren ? (
             <span className="flex w-14 shrink-0 justify-end">
-              <AvatarStack faded ring={ring} people={[...new Set(items.filter((c) => c.parent_id === item.id).flatMap((c) => c.owner_ids))]
+              <AvatarStack ring={ring} people={[...new Set(items.filter((c) => c.parent_id === item.id).flatMap((c) => c.owner_ids))]
                 .map((o) => people.find((x) => x.id === o)).filter((x): x is Person => !!x)} />
             </span>
           ) : (

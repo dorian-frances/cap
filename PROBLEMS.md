@@ -138,12 +138,17 @@ Principe clé : **la barre n'est pas dessinée, elle est calculée** à partir d
 ### Guide
 - Problème : P7 (faire comprendre l'outil à qui arrive, sans présentation)
 - Pour qui : tout nouvel utilisateur
-- Résolu quand : une page « Guide » (barre latérale, palette) explique la mentalité (barres calculées, faits avant priorités, fin de tâche = engagement), les questions P1, P2, P7, P10, P11 avec un lien vers la vue qui y répond, la vie d'une tâche, la lecture de la timeline et les raccourcis.
+- Résolu quand : une page « Guide » (barre latérale, palette) donne, en phrases courtes et factuelles, la mentalité (barres calculées, faits avant priorités, fin prévue = engagement), les questions P1, P2, P7, P10, P11, P12 avec un lien vers la vue qui y répond, la vie d'une tâche, la lecture de la timeline et les raccourcis.
 
 ### Thème sombre
 - Problème : transverse (confort de lecture, usage prolongé)
 - Pour qui : toute l'équipe
-- Résolu quand : on choisit Clair, Sombre ou Système dans le menu du compte ; le sombre est cendré (pas noir), les contrastes de texte restent au niveau AA (texte secondaire ≥ 4,5:1), et toutes les vues, barres et hachures restent lisibles.
+- Résolu quand : on choisit Clair, Sombre ou Système dans le menu du compte ; le sombre est cendré (pas noir), en clair comme en sombre, tous les textes, discrets compris (numéros de semaine, raccourcis, placeholders), atteignent l'AA (≥ 4,5:1) sur leur fond réel, survols et ligne sélectionnée compris, et toutes les vues, barres et hachures restent lisibles.
+
+### Barre latérale réductible
+- Problème : transverse (place pour la timeline et les vues)
+- Pour qui : toute l'équipe
+- Résolu quand : un bouton en haut de la barre latérale (ou `[`, ou la palette) la réduit à ses icônes, libellés en info-bulle et alertes en point rouge ; le choix est mémorisé sur le navigateur.
 
 ### Groupe « À planifier »
 - Problème : P11

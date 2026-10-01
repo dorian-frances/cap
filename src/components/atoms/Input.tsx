@@ -15,7 +15,7 @@ export function Input({ className, ...props }: ComponentProps<"input">) {
 export function InlineInput({ className, size = "md", ...props }: Omit<ComponentProps<"input">, "size"> & { size?: "md" | "lg" | "xl" }) {
   return (
     <input className={cx(
-      "-mx-1 min-w-0 rounded px-1 outline-none transition-colors duration-150 placeholder:text-stone-300 hover:bg-stone-50 focus:bg-stone-50",
+      "-mx-1 min-w-0 rounded px-1 outline-none transition-colors duration-150 placeholder:text-stone-400 hover:bg-stone-50 focus:bg-stone-50",
       size === "xl" ? "text-[22px] font-semibold tracking-tight" : size === "lg" ? "text-xl font-semibold" : "py-1 text-[13px] font-medium",
       className,
     )} {...props} />
@@ -32,7 +32,7 @@ export function InlineTextarea({ className, onInput, onKeyDown, ...props }: Comp
   return (
     <textarea ref={fit} rows={1} className={cx(
       "-mx-1 min-w-0 resize-none overflow-hidden rounded px-1 text-[22px] font-semibold leading-tight tracking-tight outline-none",
-      "transition-colors duration-150 placeholder:text-stone-300 hover:bg-stone-50 focus:bg-stone-50",
+      "transition-colors duration-150 placeholder:text-stone-400 hover:bg-stone-50 focus:bg-stone-50",
       className,
     )} onInput={(e) => { fit(e.currentTarget); onInput?.(e); }}
       onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); e.currentTarget.blur(); } onKeyDown?.(e); }} {...props} />

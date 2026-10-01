@@ -74,8 +74,8 @@ export function Calendar({ start, end, rangeMode, onPick }: { start?: string | n
                 onClick={() => { setFocus(d); onPick(toIso(d)); }} onMouseEnter={() => rangeMode && setHover(d)}
                 className={cx(
                   "relative flex size-8 items-center justify-center rounded-md text-[13px] tabular-nums outline-offset-0 transition-colors duration-100",
-                  edge ? "bg-accent-600 font-medium text-white" : "hover:bg-stone-100",
-                  !edge && (outside ? "text-stone-300" : isWeekend(d) ? "text-stone-400" : "text-stone-800"),
+                  edge ? "bg-accent-solid font-medium text-white" : "hover:bg-stone-100",
+                  !edge && (outside ? "text-stone-400" : isWeekend(d) ? "text-stone-500" : "text-stone-800"),
                   !edge && d === today && "font-semibold text-accent-700",
                 )}>
                 {new Date(d * 86_400_000).getUTCDate()}
