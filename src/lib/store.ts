@@ -66,7 +66,7 @@ export function useProject(id: string) {
   const addItem = (fields: Partial<Item>) => {
     const item: Item = {
       id: uid(), parent_id: null, type: "feature", title: "", position: 0, estimate_jh: 0,
-      owner_ids: [], status: "todo", milestone_date: null, target_id: null, description: "", ...fields,
+      owner_ids: [], status: "todo", milestone_date: null, target_ids: [], description: "", ...fields,
     };
     local((d) => ({ ...d, items: [...d.items, item] }));
     write(supabase.from("items").insert({ ...item, project_id: pid }));
@@ -85,15 +85,13 @@ export function useProject(id: string) {
     const removed = data.items.filter((i) => gone.has(i.id));
     const depth = (i: Item): number => (i.parent_id && gone.has(i.parent_id) ? 1 + depth(removed.find((r) => r.id === i.parent_id)!) : 0);
     removed.sort((a, b) => depth(a) - depth(b));
-    const retargeted = data.items.filter((i) => !gone.has(i.id) && i.target_id && gone.has(i.target_id));
-    local((d) => ({
-      ...d,
-      items: d.items.filter((i) => !gone.has(i.id)).map((i) => (i.target_id && gone.has(i.target_id) ? { ...i, target_id: null } : i)),
-    }));
+    const retargeted = data.items.filter((i) => !gone.has(i.id) && i.target_ids.some((t) => gone.has(t)));
+    local((d) => ({ ...d, items: d.items.filter((i) => !gone.has(i.id)) }));
     write(supabase.from("items").delete().in("id", ids));
+    for (const r of retargeted) updateItems([r.id], { target_ids: r.target_ids.filter((t) => !gone.has(t)) });
     const undo = async () => {
       await restoreItems(removed);
-      for (const r of retargeted) await updateItems([r.id], { target_id: r.target_id });
+      for (const r of retargeted) await updateItems([r.id], { target_ids: r.target_ids });
     };
     const tid = toasts.add({
       title: label,
@@ -167,18 +165,18 @@ export function useProject(id: string) {
     const ago = (days: number) => { let x = toDay(todayIso()) - days; while (isWeekend(x)) x--; return toIso(x); };
     const it = (f: Partial<Item>): Item => ({
       id: uid(), parent_id: null, type: "feature", title: "", position: 0, estimate_jh: 0,
-      owner_ids: [], status: "todo", milestone_date: null, target_id: null, description: "", ...f,
+      owner_ids: [], status: "todo", milestone_date: null, target_ids: [], description: "", ...f,
     });
     const demo = it({ type: "milestone", title: "Démo client", milestone_date: d(25) });
     const auth = it({ title: "Authentification", position: 1 });
-    const shop = it({ title: "Boutique", position: 2, target_id: demo.id });
+    const shop = it({ title: "Boutique", position: 2, target_ids: [demo.id] });
     // Une seule insertion, parents avant enfants.
     await restoreItems([
       demo, it({ type: "milestone", title: "V1", milestone_date: d(46) }), auth, shop,
       it({ title: "Connexion SSO", parent_id: auth.id, position: 1, estimate_jh: 5, owner_ids: [a.id], status: "done", started_on: ago(14), done_on: ago(6) }),
       it({ title: "Gestion des rôles", parent_id: auth.id, position: 2, estimate_jh: 5, owner_ids: [c.id], status: "doing", started_on: ago(11) }),
       it({ title: "Catalogue", parent_id: shop.id, position: 1, estimate_jh: 12, owner_ids: [a.id, b.id], status: "doing", started_on: ago(3) }),
-      it({ title: "Paiement", parent_id: shop.id, position: 2, estimate_jh: 5, owner_ids: [b.id], target_id: demo.id }),
+      it({ title: "Paiement", parent_id: shop.id, position: 2, estimate_jh: 5, owner_ids: [b.id], target_ids: [demo.id] }),
       it({ title: "Notifications", position: 3, estimate_jh: 3, owner_ids: [c.id] }),
       it({ title: "Back-office", position: 4, estimate_jh: 12, owner_ids: [c.id] }),
     ]);

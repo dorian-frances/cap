@@ -2,7 +2,7 @@
 
 import { ArrowRight, CalendarCheck, CalendarDays, Check, ChevronRight, CircleSlash, Clock, Divide, Link2, Play, Plus, Trash2, TriangleAlert, X } from "lucide-react";
 import {
-  absentSet, allocationOn, dueOn, prepLeads, itemOverload, isWeekend, pctLabel, toIso, lateBy, overdue, slip, toDay, todayIso, totalJh, unplannedReason, workJh, workingDays, fmtDay,
+  absentSet, allocationOn, dueOn, prepLeads, itemOverload, isWeekend, pctLabel, toIso, lateAfter, lateBy, targetsOf, overdue, slip, toDay, todayIso, totalJh, unplannedReason, workJh, workingDays, fmtDay,
   type Item, type Plan, type TagEntry,
 } from "@/lib/plan";
 import type { Data, Store } from "@/lib/store";
@@ -33,7 +33,8 @@ export default function ItemPanel({ item, data, plan, store, me, closing, onClos
   const kids = items.filter((i) => i.parent_id === item.id && i.type === "feature").sort((a, b) => a.position - b.position);
   const isParent = kids.length > 0;
   const owners = people.filter((p) => item.owner_ids.includes(p.id));
-  const target = items.find((i) => i.id === item.target_id);
+  const targets = targetsOf(item, items);
+  const missed = targets.filter((m) => lateAfter(span, m.milestone_date!) > 0);
   const late = lateBy(item, span, items);
   const behind = !isParent && overdue(item, span);
   const today = todayIso();
@@ -179,7 +180,8 @@ export default function ItemPanel({ item, data, plan, store, me, closing, onClos
               </Chip>
             )}
             <Chip tone={late ? "danger" : "default"} onClick={(e) => onPick("milestone", e.currentTarget)}>
-              {target ? <><Diamond late={late > 0} />{target.title}</> : <span className="text-stone-500">Jalon cible</span>}
+              {targets.length ? targets.map((m) => <span key={m.id} className="flex items-center gap-1.5"><Diamond late={missed.includes(m)} />{m.title}</span>)
+                : <span className="text-stone-500">Jalon cible</span>}
             </Chip>
           </div>
         </div>
@@ -267,11 +269,13 @@ export default function ItemPanel({ item, data, plan, store, me, closing, onClos
 
         {!isParent && item.status !== "done" && owners.length > 0 && <AllocationControl key={item.id} item={item} owners={owners} dated={item.status === "doing"} store={store} />}
 
-        {late > 0 && target && (
+        {late > 0 && missed.length > 0 && (
           <div className="flex animate-rise-in flex-col gap-2 rounded-lg border border-red-100 bg-red-50/60 px-3.5 py-3 text-[13px]">
             <div className="flex items-center gap-2 font-semibold text-red-800"><TriangleAlert size={14} className="text-red-600" />
-              {late} jour{late > 1 ? "s" : ""} ouvré{late > 1 ? "s" : ""} après {target.title}</div>
-            <div className="text-[12.5px] text-red-800/80">Fin calculée le {fmtDay(span!.end)}, le jalon est le {fmtDay(target.milestone_date!, true)}</div>
+              {late} jour{late > 1 ? "s" : ""} ouvré{late > 1 ? "s" : ""} après {missed[0].title}</div>
+            <div className="text-[12.5px] text-red-800/80">Fin calculée le {fmtDay(span!.end)}, {missed.length > 1
+              ? missed.map((m) => `${m.title} le ${fmtDay(m.milestone_date!, true)}`).join(", ")
+              : `le jalon est le ${fmtDay(missed[0].milestone_date!, true)}`}</div>
             {!isParent && (
               <div className="flex gap-1.5">
                 <Button size="sm" onClick={(e) => onPick("owners", e.currentTarget)}>Ajouter un owner</Button>

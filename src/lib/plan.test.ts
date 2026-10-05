@@ -1,7 +1,7 @@
 // node --test src/lib/plan.test.ts
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { schedule as run, allocationOn, itemOverload, pauses, startBefore, overloaded, weekOverload, isLate, lateBy, overdue, slip, totalJh, activeTags, unplannedReason, weekLoad, absentSet, toDay, daysUntil, dueOn, upcomingStarts, toLift, upcomingMilestones, type Item } from "./plan.ts";
+import { schedule as run, allocationOn, itemOverload, pauses, startBefore, overloaded, weekOverload, isLate, lateBy, overdue, slip, totalJh, activeTags, unplannedReason, weekLoad, absentSet, toDay, daysUntil, dueOn, upcomingStarts, toLift, upcomingMilestones, targetsOf, type Item } from "./plan.ts";
 
 const MON = "2026-09-28"; // lundi
 const A = { id: "a", name: "A", capacity: 1 };
@@ -11,7 +11,7 @@ const schedule = (items: Item[], people: typeof A[], abs: Parameters<typeof run>
 let n = 0;
 const item = (p: Partial<Item>): Item => ({
   id: `i${++n}`, parent_id: null, type: "feature", title: "", position: n,
-  estimate_jh: 0, owner_ids: [], status: "todo", milestone_date: null, target_id: null, ...p,
+  estimate_jh: 0, owner_ids: [], status: "todo", milestone_date: null, target_ids: [], ...p,
 });
 
 test("JH répartis entre owners", () => {
@@ -54,7 +54,7 @@ test("un item partagé attend que tous ses owners soient libres", () => {
 
 test("départ un samedi, sans owner, parent, jalon, retard", () => {
   const ms = item({ type: "milestone", milestone_date: "2026-10-02" });
-  const parent = item({ target_id: ms.id });
+  const parent = item({ target_ids: [ms.id] });
   const c1 = item({ parent_id: parent.id, estimate_jh: 2, owner_ids: ["a"] });
   const c2 = item({ parent_id: parent.id, estimate_jh: 5, owner_ids: ["a"] });
   const orphan = item({ estimate_jh: 3 });
@@ -73,7 +73,7 @@ test("explique l'attente, retard d'un parent via ses enfants, occupation hebdo",
   const ms = item({ type: "milestone", milestone_date: MON });
   const parent = item({});
   const x = item({ parent_id: parent.id, estimate_jh: 2, owner_ids: ["a"] });
-  const y = item({ parent_id: parent.id, estimate_jh: 1, owner_ids: ["a"], target_id: ms.id });
+  const y = item({ parent_id: parent.id, estimate_jh: 1, owner_ids: ["a"], target_ids: [ms.id] });
   const items = [ms, parent, x, y];
   const plan = schedule(items, [A], [], MON);
   assert.equal(plan.after.get(y.id), x.id);
@@ -315,15 +315,26 @@ test("à lever : dépendances et blocages actifs, risques et items terminés exc
 
 test("jalons à venir : retard, non planifiés, marge du dernier item", () => {
   const m = item({ type: "milestone", milestone_date: "2026-10-05" });
-  const x = item({ estimate_jh: 5, owner_ids: ["a"], target_id: m.id }); // fin 2 oct.
-  const y = item({ target_id: m.id });
+  const x = item({ estimate_jh: 5, owner_ids: ["a"], target_ids: [m.id] }); // fin 2 oct.
+  const y = item({ target_ids: [m.id] });
   const items = [m, x, y];
   const r = upcomingMilestones(items, schedule(items, [A], [], MON, MON), MON)[0];
   assert.deepEqual([r.targeted, r.late.length, r.unplanned, r.margin, r.tone], [2, 0, 1, 1, "tight"]);
   const far = item({ type: "milestone", milestone_date: "2026-10-12" }); // 6 j après la fin de x : ok
-  const ok = upcomingMilestones([far, { ...x, target_id: far.id }], schedule([far, x], [A], [], MON, MON), MON)[0];
+  const ok = upcomingMilestones([far, { ...x, target_ids: [far.id] }], schedule([far, x], [A], [], MON, MON), MON)[0];
   assert.deepEqual([ok.margin, ok.tone], [6, "ok"]);
-  const z = item({ estimate_jh: 8, owner_ids: ["a"], target_id: m.id });
+  const z = item({ estimate_jh: 8, owner_ids: ["a"], target_ids: [m.id] });
   const late = upcomingMilestones([m, z], schedule([m, z], [A], [], MON, MON), MON)[0];
   assert.deepEqual([late.late.length, late.worst, late.margin, late.tone], [1, 2, 0, "late"]);
+});
+
+test("plusieurs jalons : retard sur le plus proche, chaque jalon jugé sur sa date", () => {
+  const near = item({ type: "milestone", milestone_date: "2026-10-01" });
+  const far = item({ type: "milestone", milestone_date: "2026-10-12" });
+  const x = item({ estimate_jh: 5, owner_ids: ["a"], target_ids: [far.id, near.id] }); // fin 2 oct.
+  const items = [near, far, x];
+  const plan = schedule(items, [A], [], MON, MON);
+  assert.deepEqual(targetsOf(x, items).map((m) => m.id), [near.id, far.id]);
+  assert.equal(lateBy(x, plan.spans.get(x.id), items), 1);
+  assert.deepEqual(upcomingMilestones(items, plan, MON).map((r) => r.tone), ["late", "ok"]);
 });

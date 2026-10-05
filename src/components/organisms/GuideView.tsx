@@ -31,7 +31,7 @@ export default function GuideView({ onView, onShare, onPalette }: { onView: (v: 
       <Section title="Où trouver la réponse">
         <div className="flex flex-col divide-y divide-stone-100 rounded-xl border border-stone-200">
           <Question q="Quand est-ce livré, avant ou après le jalon ?" links={<>{go("dashboard", "Dashboard", <LayoutDashboard size={13} />)}{go("jalons", "Jalons", <DiamondIcon size={13} />)}</>}>
-            Après son jalon cible : hachures rouges et ⚠.
+            Après un de ses jalons cibles : hachures rouges et ⚠.
           </Question>
           <Question q="Qu'est-ce qui est en retard ?" links={go("timeline", "Timeline", <GanttChart size={13} />)}>
             Au-delà de la fin prévue : hachures ambre et « +n j », la suite glisse. Retard anticipé : avenant.
@@ -89,7 +89,7 @@ export default function GuideView({ onView, onShare, onPalette }: { onView: (v: 
           <Shortcut keys={["S"]}>Statut (puis <Kbd>2</Kbd> démarrer, <Kbd>3</Kbd> terminer)</Shortcut>
           <Shortcut keys={["A"]}>Assigner</Shortcut>
           <Shortcut keys={["E"]}>Estimation</Shortcut>
-          <Shortcut keys={["M"]}>Jalon cible</Shortcut>
+          <Shortcut keys={["M"]}>Jalons cibles</Shortcut>
           <Shortcut keys={["↑", "↓"]}>Item précédent / suivant</Shortcut>
           <Shortcut keys={["G"]}>puis <Kbd>D</Kbd> <Kbd>T</Kbd> <Kbd>E</Kbd> <Kbd>J</Kbd> <Kbd>A</Kbd> : Dashboard, Timeline, Équipe, Jalons, Absences</Shortcut>
         </div>

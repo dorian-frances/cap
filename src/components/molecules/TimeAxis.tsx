@@ -1,4 +1,4 @@
-import { lateBy, fmtDay, type Item, type Plan } from "@/lib/plan";
+import { lateAfter, fmtDay, type Item, type Plan } from "@/lib/plan";
 import type { Axis } from "@/lib/axis";
 import { Diamond } from "../atoms/Diamond";
 
@@ -6,7 +6,7 @@ export const weekendBg = (px: number) => ({
   backgroundImage: `repeating-linear-gradient(90deg, transparent 0 ${5 * px}px, var(--weekend) ${5 * px}px ${7 * px}px)`,
 });
 
-const msLate = (m: Item, items: Item[], plan: Plan) => items.some((i) => i.target_id === m.id && lateBy(i, plan.spans.get(i.id), items) > 0);
+const msLate = (m: Item, items: Item[], plan: Plan) => !!m.milestone_date && items.some((i) => i.target_ids.includes(m.id) && lateAfter(plan.spans.get(i.id), m.milestone_date!) > 0);
 
 /** En-tête de l'échelle : mois, semaines ou jours, pastille d'aujourd'hui, jalons. */
 export function AxisHeader({ ax, milestones, items, plan }: { ax: Axis; milestones: Item[]; items: Item[]; plan: Plan }) {

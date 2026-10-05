@@ -93,16 +93,14 @@ export function ItemPicker({ state, data, plan, store, me, onClose: close, onSte
   const milestones = data.items.filter((i) => i.type === "milestone").sort((a, b) => (a.milestone_date ?? "").localeCompare(b.milestone_date ?? ""));
   return menu(
     <>
-      <MenuHeader label="Jalon cible" kbd="M" />
-      <Menu.RadioGroup value={common("target_id") ?? "none"}
-        onValueChange={(v) => { store.updateItems(state.ids, { target_id: v === "none" ? null : (v as string) }); onClose(); }}>
-        <MenuRadioItem value="none"><span className="size-2.5" /><span className="text-stone-500">Aucun jalon</span></MenuRadioItem>
-        {milestones.map((m) => (
-          <MenuRadioItem key={m.id} value={m.id} trailing={<span className="text-xs text-stone-400">{m.milestone_date ? fmtDay(m.milestone_date) : ""}</span>}>
-            <Diamond /><span className="truncate">{m.title || "Sans titre"}</span>
-          </MenuRadioItem>
-        ))}
-      </Menu.RadioGroup>
+      <MenuHeader label="Jalons cibles" kbd="M" />
+      {milestones.map((m) => (
+        <MenuCheckboxItem key={m.id} checked={items.every((i) => i.target_ids.includes(m.id))}
+          onCheckedChange={(c) => { for (const it of items) store.updateItems([it.id], { target_ids: c ? [...new Set([...it.target_ids, m.id])] : it.target_ids.filter((t) => t !== m.id) }); }}
+          trailing={<span className="text-xs text-stone-400">{m.milestone_date ? fmtDay(m.milestone_date) : ""}</span>}>
+          <Diamond /><span className="truncate">{m.title || "Sans titre"}</span>
+        </MenuCheckboxItem>
+      ))}
       {!milestones.length && <MenuEmpty>Créez des jalons depuis la vue Jalons.</MenuEmpty>}
     </>,
   );

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import { Clock, Download, TriangleAlert } from "lucide-react";
 import {
-  isLate, orderItems, overdue, pauses, schedule, todayIso, fmtDay, type Absence, type Item, type Person, type Project, type Status,
+  isLate, lateAfter, targetsOf, orderItems, overdue, pauses, schedule, todayIso, fmtDay, type Absence, type Item, type Person, type Project, type Status,
 } from "@/lib/plan";
 import { axis } from "@/lib/axis";
 import { supabase } from "@/lib/supabase";
@@ -47,10 +47,10 @@ export default function SharePage() {
   const lastMs = milestones.at(-1);
   // Livrables (niveau 0) dont un Item ciblant ce jalon finit après lui.
   const topOf = (it: Item): Item => (it.parent_id ? topOf(items.find((i) => i.id === it.parent_id)!) : it);
-  const lateFor = (m: Item) => [...new Set(rows.filter((r) => r.item.target_id === m.id && isLate(r.item, plan, items)).map((r) => topOf(r.item).id))];
+  const lateFor = (m: Item) => [...new Set(rows.filter((r) => r.item.target_ids.includes(m.id) && lateAfter(plan.spans.get(r.item.id), m.milestone_date!) > 0).map((r) => topOf(r.item).id))];
   // Première date de jalon dépassée par l'item ou un de ses enfants directs (partie hachurée).
   const lateFrom = (it: Item, end: string) => [it, ...items.filter((i) => i.parent_id === it.id)]
-    .map((i) => items.find((m) => m.id === i.target_id)?.milestone_date)
+    .flatMap((i) => targetsOf(i, items).map((m) => m.milestone_date!))
     .filter((d): d is string => !!d && d < end).sort()[0] ?? null;
   const done = top.filter((r) => statusOf(r.item.id) === "done").length;
   const dates = [...plan.spans.values()].flatMap((s) => (s ? [s.start, s.end] : []));

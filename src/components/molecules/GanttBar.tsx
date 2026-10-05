@@ -57,13 +57,3 @@ export function GanttBar({ ax, span, label, tone, lateFrom, pauses = [], top, he
     </>
   );
 }
-
-/** Barre fine d'un item parent déplié : l'enveloppe de ses sous-items. Replié, il s'affiche comme une barre d'item (GanttBar). */
-export function SummaryBar({ ax, span, selected, title }: { ax: Axis; span: Span; selected?: boolean; title?: string }) {
-  const left = ax.x(span.start);
-  const width = ax.x(span.end) - left + ax.px;
-  return (
-    <div title={title} className={cx("absolute rounded-[3px]", motion)}
-      style={{ left, width, top: 13, height: 6, background: "var(--color-stone-400)", boxShadow: selected ? `0 0 0 2px ${ACCENT}` : undefined }} />
-  );
-}

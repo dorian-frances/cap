@@ -1,7 +1,7 @@
 "use client";
 
 import { Check, Plus, Trash2 } from "lucide-react";
-import { lateBy, todayIso, type Plan } from "@/lib/plan";
+import { lateAfter, todayIso, type Plan } from "@/lib/plan";
 import type { Data, Store } from "@/lib/store";
 import { Button, Diamond, InlineInput } from "../atoms";
 import { DatePicker, IconButton } from "../molecules";
@@ -15,8 +15,8 @@ export default function MilestonesView({ data, plan, store }: { data: Data; plan
       actions={<Button variant="primary" onClick={add}><Plus size={14} />Nouveau jalon</Button>}>
       <div>
         {ms.map((m) => {
-          const targeted = data.items.filter((i) => i.target_id === m.id);
-          const late = targeted.filter((i) => lateBy(i, plan.spans.get(i.id), data.items) > 0);
+          const targeted = data.items.filter((i) => i.target_ids.includes(m.id));
+          const late = targeted.filter((i) => m.milestone_date && lateAfter(plan.spans.get(i.id), m.milestone_date) > 0);
           return (
             <div key={m.id} className="group flex h-12 animate-fade-in items-center gap-3 border-b border-stone-100 px-2">
               <Diamond late={late.length > 0} size={12} />

@@ -26,7 +26,7 @@ export type Item = {
   owner_ids: string[];
   status: Status;
   milestone_date: string | null;
-  target_id: string | null;
+  target_ids: string[]; // jalons ciblés : un item peut en impacter plusieurs
   description?: string;
   started_on?: string | null; // démarrage réel (ou prévu) ; posé en passant « En cours »
   done_on?: string | null; // fin réelle ; posée en passant « Terminé »
@@ -384,11 +384,19 @@ export function activeTags(items: Item[], id: string): TagEntry[] {
   return [...(self ? openTags(self) : []), ...items.filter((i) => i.parent_id === id && i.type === "feature").flatMap((k) => activeTags(items, k.id))];
 }
 
-/** Jours ouvrés entre la date du jalon cible et la fin de l'Item (0 = à l'heure). */
+/** Jalons datés ciblés par un Item, du plus proche au plus lointain. */
+export const targetsOf = (item: Item, items: Item[]) => items
+  .filter((m) => m.type === "milestone" && m.milestone_date && item.target_ids.includes(m.id))
+  .sort((a, b) => a.milestone_date!.localeCompare(b.milestone_date!));
+
+/** Jours ouvrés entre la date d'un jalon et la fin de l'Item (0 = à l'heure). */
+export const lateAfter = (span: Span | null | undefined, date: string) =>
+  !span || span.end <= date ? 0 : workingDays(toIso(toDay(date) + 1), span.end);
+
+/** Retard sur le plus proche de ses jalons, donc le plus grand (0 = à l'heure pour tous). */
 export function lateBy(item: Item, span: Span | null | undefined, items: Item[]) {
-  const target = items.find((i) => i.id === item.target_id);
-  if (!span || !target?.milestone_date || span.end <= target.milestone_date) return 0;
-  return workingDays(toIso(toDay(target.milestone_date) + 1), span.end);
+  const first = targetsOf(item, items)[0];
+  return first ? lateAfter(span, first.milestone_date!) : 0;
 }
 
 /** Un parent est en retard si lui-même ou un de ses descendants l'est. */
@@ -521,8 +529,8 @@ export function upcomingMilestones(items: Item[], plan: Plan, today = todayIso()
   return items.filter((m) => m.type === "milestone" && m.milestone_date && m.milestone_date >= today)
     .sort((a, b) => a.milestone_date!.localeCompare(b.milestone_date!))
     .map((m) => {
-      const targeted = items.filter((i) => i.target_id === m.id);
-      const late = targeted.map((item) => ({ item, n: lateBy(item, plan.spans.get(item.id), items) })).filter((x) => x.n > 0).sort((a, b) => b.n - a.n);
+      const targeted = items.filter((i) => i.target_ids.includes(m.id));
+      const late = targeted.map((item) => ({ item, n: lateAfter(plan.spans.get(item.id), m.milestone_date!) })).filter((x) => x.n > 0).sort((a, b) => b.n - a.n);
       const ends = targeted.flatMap((i) => plan.spans.get(i.id)?.end ?? []).sort();
       const last = ends.at(-1);
       const unplanned = targeted.length - ends.length;

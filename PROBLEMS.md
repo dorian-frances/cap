@@ -39,7 +39,7 @@ Principe clé : **la barre n'est pas dessinée, elle est calculée** à partir d
 - **Fin prévue = engagement** : date de début + JH à l'allocation du jour de démarrage, sur la disponibilité des owners. La fin de tâche sert de jalon : finir (ou prévoir de finir) après, c'est glisser.
 - **Surcharge** : si les allocations d'une personne **plus sa part défauts** dépassent 100 % un jour donné (ex. 100 % sur une tâche + 20 % de défauts = 120 %), ses tâches n'avancent qu'avec le temps qui reste, et elle est signalée.
 - **Faits avant priorités** : les tâches terminées puis en cours sont placées d'abord, les tâches à faire remplissent le temps libre restant.
-- **Jalon client** : Item de type jalon, avec une date fixe saisie, affiché comme repère sur la timeline. Il ne pilote pas le calcul.
+- **Jalon client** : Item de type jalon (un Item peut en cibler plusieurs), avec une date fixe saisie, affiché comme repère sur la timeline. Il ne pilote pas le calcul.
 - **Pas de fin de projet** : le projet est continu, on raisonne en date de livraison par Item.
 
 ## Contexte
@@ -93,7 +93,7 @@ Principe clé : **la barre n'est pas dessinée, elle est calculée** à partir d
 ### Jalon client et retard
 - Problème : P1
 - Pour qui : PM, client
-- Résolu quand : un Item rattaché à un jalon et qui finit après est signalé (⚠, contour rouge).
+- Résolu quand : un Item peut être rattaché à plusieurs jalons (touche M, cases à cocher) ; s'il finit après l'un d'eux, il est signalé (⚠, hachures rouges dès le plus proche jalon dépassé) et chaque jalon est jugé sur sa propre date.
 
 ### Équipe, temps partiel, absences
 - Problème : P2
