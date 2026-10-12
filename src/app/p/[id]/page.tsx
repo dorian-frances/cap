@@ -75,9 +75,10 @@ function ProjectPage() {
   const [colorBy, setColorBy] = useStored<"status" | "owner">("cap:colorBy", "status");
   const [showDone, setShowDone] = useStored("cap:showDone", true);
   const [navCollapsed, setNavCollapsed] = useStored("cap:navCollapsed", false);
-  // « start » : vue escalier, items à plat triés par date de début ; la priorité n'y est pas modifiable.
-  const [sortBy, setSortBy] = useStored<"priority" | "start">("cap:sortBy", "priority");
-  const byStart = sortBy === "start";
+  // « start » : vue escalier, items à plat triés par date de début ; « owner » : idem, regroupés par owner.
+  // Dans ces deux vues, la priorité n'est pas modifiable.
+  const [sortBy, setSortBy] = useStored<"priority" | "start" | "owner">("cap:sortBy", "priority");
+  const flat = sortBy !== "priority";
   const [ownerFilter, setOwnerFilter] = useState<Set<string>>(new Set());
   const [lateOnly, setLateOnly] = useState(false);
   const [groupOpen, setGroupOpen] = useState(true);
@@ -115,7 +116,7 @@ function ProjectPage() {
       for (let it: Item | undefined = r.item; it; it = it.parent_id ? byId.get(it.parent_id) : undefined) kept.add(it.id);
     }
     const leaves = allRows.filter((r) => toPlan(r) && keepLeaf(r)).map((r) => ({ ...r, depth: 0 }));
-    if (byStart) {
+    if (flat) {
       const start = (r: Row) => plan.spans.get(r.item.id)?.start ?? "\uffff";
       return [allRows.filter((r) => !r.hasChildren && kept.has(r.item.id)).map((r) => ({ ...r, depth: 0 })).sort((a, b) => start(a).localeCompare(start(b))), leaves];
     }
@@ -124,8 +125,12 @@ function ProjectPage() {
       allRows.filter((r) => (r.hasChildren ? kept.has(r.item.id) || !filtered : kept.has(r.item.id)) && !hidden(r.item)),
       leaves,
     ];
-  }, [allRows, byId, collapsed, showDone, ownerFilter, lateOnly, plan, fresh, cursor, renaming, byStart]);
-  const order = useMemo(() => [...rows, ...(groupOpen ? unplanned : [])].map((r) => r.item.id), [rows, unplanned, groupOpen]);
+  }, [allRows, byId, collapsed, showDone, ownerFilter, lateOnly, plan, fresh, cursor, renaming, flat]);
+  // Vue par owner : un item à plusieurs owners apparaît sous chacun.
+  const groups = useMemo(() => sortBy !== "owner" ? undefined : (data?.people ?? [])
+    .map((person) => ({ person, rows: rows.filter((r) => r.item.owner_ids.includes(person.id)) })).filter((g) => g.rows.length),
+  [sortBy, rows, data?.people]);
+  const order = useMemo(() => [...new Set([...(groups?.flatMap((g) => g.rows) ?? rows), ...(groupOpen ? unplanned : [])].map((r) => r.item.id))], [rows, groups, unplanned, groupOpen]);
 
   const ax = useMemo(() => axis(zoom, data?.project.start_date ?? "2026-01-01", [
     ...[...plan.spans.values()].flatMap((s) => (s ? [s.start, s.end] : [])),
@@ -167,7 +172,7 @@ function ProjectPage() {
     moveTo(dragId, target.parent_id, where === "before" ? between(sib[i - 1], sib[i]) : between(sib[i], sib[i + 1]));
   };
   const moveBy = (iid: string, dir: -1 | 1) => {
-    if (byStart) return;
+    if (flat) return;
     const it = byId.get(iid); if (!it) return;
     const sib = siblings(it.parent_id);
     const i = sib.findIndex((s) => s.id === iid);
@@ -176,7 +181,7 @@ function ProjectPage() {
     store.updateItems([other.id], { position: it.position });
   };
   const indent = (iid: string) => {
-    if (byStart) return;
+    if (flat) return;
     const it = byId.get(iid); if (!it) return;
     const sib = siblings(it.parent_id);
     const prev = sib[sib.findIndex((s) => s.id === iid) - 1]; if (!prev) return;
@@ -185,7 +190,7 @@ function ProjectPage() {
     setCollapsed((c) => { const n = new Set(c); n.delete(prev.id); return n; });
   };
   const outdent = (iid: string) => {
-    if (byStart) return;
+    if (flat) return;
     const it = byId.get(iid); const parent = it?.parent_id ? byId.get(it.parent_id) : undefined; if (!it || !parent) return;
     const sib = siblings(parent.parent_id);
     const i = sib.findIndex((s) => s.id === parent.id);
@@ -379,12 +384,12 @@ function ProjectPage() {
               <ContextMenu.Trigger className="flex min-h-0 flex-1 flex-col">
                 <Timeline items={items} people={data.people} plan={plan} rows={rows} ax={ax}
                   unplanned={unplanned} groupOpen={groupOpen} onToggleGroup={() => setGroupOpen((o) => !o)}
-                  colorBy={colorBy} flat={byStart} selected={selected} renaming={renaming} collapsed={collapsed} scrollRef={scrollRef}
+                  colorBy={colorBy} flat={flat} groups={groups} selected={selected} renaming={renaming} collapsed={collapsed} scrollRef={scrollRef}
                   header={<>
                     <div className="flex items-baseline gap-1.5"><span className="font-medium">Items</span><span className="text-xs tabular-nums text-stone-400">{features.length}</span></div>
                     <div className="flex text-[11px] text-stone-400"><span className="flex min-w-0 flex-1 items-center gap-1">
-                        <span className="truncate">{byStart ? "Par date de début · déplacement désactivé" : "Ordre de la liste = priorité"}</span>
-                        {byStart && (
+                        <span className="truncate">{flat ? `Par ${sortBy === "owner" ? "owner" : "date de début"} · déplacement désactivé` : "Ordre de la liste = priorité"}</span>
+                        {flat && (
                           <Tooltip label="Repasser en vue Priorité pour déplacer ou imbriquer les items">
                             <button type="button" aria-label="Pourquoi le déplacement est désactivé" className="shrink-0 rounded-full text-stone-400 transition-colors hover:text-stone-600"><Info size={12} /></button>
                           </Tooltip>
@@ -417,7 +422,7 @@ function ProjectPage() {
                   <MenuSeparator />
                   <MenuItem kbd="R" onClick={() => setRenaming(ctxItem.id)}>Renommer</MenuItem>
                   <MenuItem onClick={() => newItem(ctxItem.id)}>Ajouter un sous-item</MenuItem>
-                  {!byStart && <>
+                  {!flat && <>
                     <MenuItem kbd="Tab" onClick={() => indent(ctxItem.id)}>Imbriquer</MenuItem>
                     <MenuItem kbd="⇧Tab" onClick={() => outdent(ctxItem.id)}>Désimbriquer</MenuItem>
                     <MenuItem kbd="⌥↑" onClick={() => moveBy(ctxItem.id, -1)}>Monter en priorité</MenuItem>
@@ -449,7 +454,7 @@ function ProjectPage() {
 
       {panelItem && withPanel && (
         <ItemPanel item={panelItem} closing={panelClosing} data={data} plan={plan} store={store} me={me} onClose={closePanel} onOpen={openItem}
-          onPick={(kind, anchor) => setPicker({ kind, ids: [panelItem.id], anchor })} onMoveUp={byStart ? undefined : () => moveBy(panelItem.id, -1)} />
+          onPick={(kind, anchor) => setPicker({ kind, ids: [panelItem.id], anchor })} onMoveUp={flat ? undefined : () => moveBy(panelItem.id, -1)} />
       )}
 
       {view === "timeline" && (

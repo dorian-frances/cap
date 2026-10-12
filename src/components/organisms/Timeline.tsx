@@ -9,7 +9,7 @@ import {
 import type { Axis } from "@/lib/axis";
 import { cx } from "@/lib/cx";
 import { AvatarStack, AxisHeader, AxisLines, GanttBar, weekendBg } from "../molecules";
-import { Chevron, StatusIcon } from "../atoms";
+import { Avatar, Chevron, StatusIcon } from "../atoms";
 import { STATUS, TAGS, personColor } from "../tokens";
 
 // start / done : date de démarrage ou de fin, demandée après le choix du statut.
@@ -27,7 +27,8 @@ type Props = {
   onToggleGroup: () => void;
   ax: Axis;
   colorBy: "status" | "owner";
-  flat?: boolean; // vue par date de début : lignes à plat (chemin du parent affiché), pas de glisser-déposer
+  flat?: boolean; // vue par date de début ou par owner : lignes à plat (chemin du parent affiché), pas de glisser-déposer
+  groups?: { person: Person; rows: Row[] }[]; // vue par owner : remplace rows
   selected: Set<string>;
   renaming: string | null;
   collapsed: Set<string>;
@@ -87,7 +88,7 @@ export default function Timeline({ scrollRef, ...p }: Props) {
     return parent ? `${pathOf(parent)}${parent.title || "Sans titre"} › ` : "";
   };
 
-  const rowEl = ({ item, depth, hasChildren }: Row, inGroup = false) => {
+  const rowEl = ({ item, depth, hasChildren }: Row, inGroup = false, key = item.id) => {
     const sel = p.selected.has(item.id);
     const span = plan.spans.get(item.id);
     const late = hasChildren ? isLate(item, plan, items) : lateBy(item, span, items) > 0;
@@ -99,7 +100,7 @@ export default function Timeline({ scrollRef, ...p }: Props) {
     const tag = (Object.keys(TAGS) as Tag[]).find((t) => tags.some((e) => e.tag === t));
     const hint = drop?.id === item.id ? (drop.where === "before" ? "shadow-[inset_0_2px_0_var(--color-accent-600)]" : "shadow-[inset_0_-2px_0_var(--color-accent-600)]") : "";
     return (
-      <div key={inGroup ? `u-${item.id}` : item.id} data-row={item.id} role="row" aria-selected={sel}
+      <div key={inGroup ? `u-${item.id}` : key} data-row={item.id} role="row" aria-selected={sel}
         className={cx("group flex h-8 select-none transition-[background-color,opacity] duration-150 starting:opacity-0", sel ? "bg-accent-50/70" : "hover:bg-stone-50", hint, dragId === item.id && "opacity-50")}
         onClick={(e) => p.onRowClick(item.id, e)}
         onContextMenu={() => p.onContext(item.id)}
@@ -240,7 +241,18 @@ export default function Timeline({ scrollRef, ...p }: Props) {
           </div>
           <AxisHeader ax={ax} milestones={milestones} items={items} plan={plan} />
         </div>
-        {p.rows.map((r) => rowEl(r))}
+        {p.groups ? p.groups.map(({ person, rows }) => (
+          <div key={person.id} role="rowgroup">
+            <div className="flex h-9 border-t border-stone-100 first:border-t-0">
+              <div className="sticky left-0 flex items-center gap-2 border-r border-stone-100 bg-surface pl-[34px] pr-3" style={{ width: "var(--left)" }}>
+                <Avatar person={person} />
+                <span className="truncate text-[13px] font-medium">{person.name}</span>
+                <span className="text-xs tabular-nums text-stone-400">{rows.length}</span>
+              </div>
+            </div>
+            {rows.map((r) => rowEl(r, false, `${person.id}-${r.item.id}`))}
+          </div>
+        )) : p.rows.map((r) => rowEl(r))}
         {p.footer}
         {p.unplanned.length > 0 && (
           <>
