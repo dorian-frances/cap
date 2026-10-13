@@ -4,8 +4,9 @@ import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "rea
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { ContextMenu } from "@base-ui/react/context-menu";
-import { Check, ChevronRight, Info, Link2, Plus } from "lucide-react";
+import { Check, ChevronRight, Info, Link2, Plus, Sheet } from "lucide-react";
 import { orderItems, overdue, overloaded, prepLeads, schedule, upcomingStarts, type Item, type Row } from "@/lib/plan";
+import { planSheet, sheetHtml, sheetTsv } from "@/lib/excel";
 import { axis, type Zoom } from "@/lib/axis";
 import { useProject } from "@/lib/store";
 import { supabase } from "@/lib/supabase";
@@ -313,6 +314,16 @@ function ProjectPage() {
   const features = items.filter((i) => i.type === "feature");
   const viewLabel = view === "settings" ? "Paramètres" : view === "guide" ? "Guide" : VIEWS.find((v) => v.key === view)?.label;
 
+  const copyForExcel = () => {
+    const sheet = planSheet(items, data.people, plan);
+    // HTML pour garder couleurs et gras dans Excel, texte tabulé pour les autres applications.
+    return navigator.clipboard.write([new ClipboardItem({
+      "text/html": new Blob([sheetHtml(sheet)], { type: "text/html" }),
+      "text/plain": new Blob([sheetTsv(sheet)], { type: "text/plain" }),
+    })]).then(
+    () => toasts.add({ title: "Macro-plan copié", description: "Dans Excel, sélectionnez la cellule A1 de l'onglet puis collez (⌘V / Ctrl+V)." }),
+    () => toasts.add({ title: "Copie impossible", description: "Le navigateur a refusé l'accès au presse-papiers." }));
+  };
   const commands: Command[] = [
     ...(targets().length ? [
       { id: "s", group: "Sur l'item", label: "Changer le statut…", keys: ["S"], keywords: "etat avancement", run: () => pickFor("status") },
@@ -333,6 +344,7 @@ function ProjectPage() {
     ...VIEWS.map((v) => ({ id: `go-${v.key}`, group: "Aller à", label: v.label, keys: ["G", v.g], run: () => setParams({ view: v.key, item: null }) })),
     { id: "go-settings", group: "Aller à", label: "Paramètres", keywords: "editeurs lien", run: () => setParams({ view: "settings", item: null }) },
     { id: "share", group: "Aller à", label: "Partager le plan", keywords: "lien client", run: () => setShare(true) },
+    { id: "excel", group: "Aller à", label: "Copier le macro-plan pour Excel", keywords: "export csv excel tableur sharepoint coller", run: copyForExcel },
     { id: "go-guide", group: "Aller à", label: "Guide", keywords: "aide tutoriel comment fonctionne", run: () => setParams({ view: "guide", item: null }) },
     { id: "th-dark", group: "Vue", label: "Thème sombre", keywords: "dark mode nuit", run: () => setTheme("dark") },
     { id: "th-light", group: "Vue", label: "Thème clair", keywords: "light mode jour", run: () => setTheme("light") },
@@ -374,7 +386,10 @@ function ProjectPage() {
           </span>
         </span>
       }
-      actions={<Button onClick={() => setShare(true)}><Link2 size={14} />Partager</Button>}>
+      actions={<>
+        <Button variant="ghost" onClick={copyForExcel} title="Copie le macro-plan, à coller dans un onglet Excel"><Sheet size={14} />Copier pour Excel</Button>
+        <Button onClick={() => setShare(true)}><Link2 size={14} />Partager</Button>
+      </>}>
       <div key={view} className="flex min-h-0 flex-1 animate-fade-in flex-col">
         {view === "timeline" && (
           <>
