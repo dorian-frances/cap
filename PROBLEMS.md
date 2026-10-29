@@ -27,18 +27,18 @@ Principe clé : **la barre n'est pas dessinée, elle est calculée** à partir d
 
 - **Durée** d'un Item = JH ÷ somme des disponibilités de ses owners. Les JH sont répartis entre les owners.
 - **Enchaînement** : chaque owner traite ses Items dans l'ordre de priorité ; un Item démarre quand tous ses owners sont libres.
-- **Disponibilité** : 100 % par défaut, moins les week-ends, les temps partiels, les absences saisies et la **part consacrée aux défauts** (réglée par personne, ex. 20 %). La part défauts est réservée en premier ; les allocations sur les tâches sont des parts du temps **total** (Hugues à 20 % de défauts : 80 % sur sa tâche = tout son temps restant) ; l'occupation affichée inclut les défauts.
+- **Disponibilité** : 100 % par défaut, moins les week-ends, les temps partiels et les absences saisies. Pas de part réservée aux défauts.
+- **Pas de charge par tâche** : un owner donne toute sa disponibilité à chaque tâche démarrée. Deux tâches en cours en parallèle avancent chacune comme si elle était seule (pas de ralentissement, pas de surcharge).
 - **Jours fériés** : non gérés automatiquement (des freelances travaillent certains fériés). On saisit une absence, éventuellement pour toute l'équipe d'un coup.
-- **Dates réelles, pas de barre dessinée** : une tâche passe par trois états qui enregistrent chacun une date.
-  - *À faire* : pas de date ; enchaînée par priorité, jamais avant aujourd'hui.
-  - *En cours* : date de début réelle (aujourd'hui par défaut, modifiable). Fin prévue = début + JH sur la disponibilité des owners.
-  - *Terminée* : date de fin réelle, saisissable a posteriori.
+- **Dates réelles, pas de barre dessinée** : une tâche passe par quatre états.
+  - *À faire* : pas de date ; enchaînée par priorité, jamais avant aujourd'hui, dès que ses owners sont libres.
+  - *En cours* : date de début réelle (aujourd'hui par défaut, modifiable, antérieure possible pour paralléliser). Fin prévue = début + JH sur la disponibilité des owners.
+  - *Dev terminé* : date de fin du dev, saisissable a posteriori ; plus rien à faire en dev (owners libérés) mais pas en production (dépendance, recette…). Barre violette.
+  - *Fait* : en production. Depuis « Dev terminé », la date de fin du dev est gardée ; sinon, date de fin saisie.
 - **Tant qu'une tâche n'est pas terminée, elle est en cours** : si sa fin prévue est passée, elle se prolonge jusqu'à aujourd'hui (retard sur l'estimation, en ambre) et les tâches suivantes de ses owners glissent.
-- **Allocation par personne** : chaque owner consacre une part de son temps à la tâche (« Alice 100 %, Bob 20 % en aide »), datée pour une tâche en cours (« 50 % à partir du 14 sept. », 0 % = en pause, visible sur la barre en rayures grises et « En pause » dans la liste). 100 % par défaut : on vise le one-piece flow. Le reste du temps va aux autres tâches, en parallèle.
-- **Personne en aide** : une tâche attend ses owners à 100 % ; une personne à moins de 100 % donne ce qu'elle peut sans retarder le démarrage ni bloquer ses propres tâches.
-- **Fin prévue = engagement** : date de début + JH à l'allocation du jour de démarrage, sur la disponibilité des owners. La fin de tâche sert de jalon : finir (ou prévoir de finir) après, c'est glisser.
-- **Surcharge** : si les allocations d'une personne **plus sa part défauts** dépassent 100 % un jour donné (ex. 100 % sur une tâche + 20 % de défauts = 120 %), ses tâches n'avancent qu'avec le temps qui reste, et elle est signalée.
-- **Faits avant priorités** : les tâches terminées puis en cours sont placées d'abord, les tâches à faire remplissent le temps libre restant.
+- **Fin prévue = engagement** : date de début + JH sur la disponibilité des owners. La fin de tâche sert de jalon : finir (ou prévoir de finir) après, c'est glisser.
+- **Avenant** : JH ajoutés après l'estimation. Si la tâche est déjà en retard, l'avenant s'ajoute **après aujourd'hui**, en plus du retard (retard de 2 j + avenant de 1 JH = retard de 3 j).
+- **Faits avant priorités** : les tâches au dev terminé puis en cours sont placées d'abord, les tâches à faire remplissent le temps libre restant.
 - **Jalon client** : Item de type jalon (un Item peut en cibler plusieurs), avec une date fixe saisie, affiché comme repère sur la timeline. Il ne pilote pas le calcul.
 - **Pas de fin de projet** : le projet est continu, on raisonne en date de livraison par Item.
 
@@ -113,22 +113,12 @@ Principe clé : **la barre n'est pas dessinée, elle est calculée** à partir d
 ### Dates réelles et retard sur l'estimation
 - Problème : P10
 - Pour qui : PM, tech lead, client (vue partagée)
-- Résolu quand : « Démarrer » et « Terminer » enregistrent une date (modifiable, a posteriori) ; une tâche en cours dont la fin prévue est passée affiche « +n j » en ambre, se prolonge jusqu'à aujourd'hui et décale la suite de ses owners ; le filtre « En retard » les isole ; le panneau explique le glissement.
-
-### Allocation datée et glissement
-- Problème : P10, P2
-- Pour qui : PM, tech lead
-- Résolu quand : on déclare « X à 50 % sur cette tâche à partir du … » ; la tâche ralentit, les suivantes avancent en parallèle ; si elle finira après sa fin prévue, « Glissement prévu de n j » avec la cause (allocation réduite, surcharge partagée avec telle tâche).
-
-### Alerte de surcharge
-- Problème : P2
-- Pour qui : PM, tech lead
-- Résolu quand : une personne dont les allocations cumulées, défauts compris, dépassent 100 % est signalée (compteur sur « Équipe », badge « Surcharge », semaines en rouge avec les tâches en cause, détail dans sa fiche) ; sur la timeline, la tâche porte un badge « 120 % » ; son panneau détaille l'addition (« 100 % ici + 20 % défauts »), explique l'allongement et propose « Passer Hugues à 80 % ». Seule la surcharge d'aujourd'hui et à venir alerte : une surcharge passée est actée (elle se lit dans le glissement).
+- Résolu quand : « Démarrer », « Dev terminé » et « Terminer » enregistrent une date (modifiable, a posteriori) ; une tâche en cours dont la fin prévue est passée affiche « +n j » en ambre, se prolonge jusqu'à aujourd'hui et décale la suite de ses owners ; le filtre « En retard » les isole ; le panneau explique le glissement.
 
 ### Avenant (retard anticipé)
 - Problème : P10, P2
 - Pour qui : PM, tech lead
-- Résolu quand : on ajoute « +2 JH, motif » à une tâche sans toucher à son estimation ; la tâche occupe ses owners d'autant plus longtemps et les tâches suivantes démarrent après ; la fin prévue reste celle de l'estimation, le surplus apparaît en hachures ambre avec « +n j », la colonne JH affiche « 3+2 j » et le panneau donne le motif.
+- Résolu quand : on ajoute « +2 JH, motif » à une tâche sans toucher à son estimation ; la tâche occupe ses owners d'autant plus longtemps et les tâches suivantes démarrent après ; déjà en retard, l'avenant s'ajoute au retard au lieu de s'y fondre ; la fin prévue reste celle de l'estimation, le surplus apparaît en hachures ambre avec « +n j », la colonne JH affiche « 3+2 j » et le panneau donne le motif.
 
 ### Couleur par personne
 - Problème : P2
@@ -139,6 +129,11 @@ Principe clé : **la barre n'est pas dessinée, elle est calculée** à partir d
 - Problème : P7 (faire comprendre l'outil à qui arrive, sans présentation)
 - Pour qui : tout nouvel utilisateur
 - Résolu quand : une page « Guide » (barre latérale, palette) donne, en phrases courtes et factuelles, la mentalité (barres calculées, faits avant priorités, fin prévue = engagement), les questions P1, P2, P7, P10, P11, P12 avec un lien vers la vue qui y répond, la vie d'une tâche, la lecture de la timeline et les raccourcis.
+
+### Lisibilité des barres en retard
+- Problème : P10, P7
+- Pour qui : toute l'équipe, client
+- Résolu quand : le nom d'une tâche reste lisible sur sa barre même sur les hachures de retard ou de jalon dépassé (il passe au-dessus, sur un fond de la couleur de la barre).
 
 ### Thème sombre
 - Problème : transverse (confort de lecture, usage prolongé)
@@ -158,7 +153,7 @@ Principe clé : **la barre n'est pas dessinée, elle est calculée** à partir d
 ### Vue par date de début (escalier) et par owner
 - Problème : P1, P7
 - Pour qui : PM, client
-- Résolu quand : une bascule « Priorité / Date de début / Owner » sur la timeline affiche les tâches à plat, triées par date de début (chemin du parent en préfixe) pour lire l'enchaînement en escalier ; « Owner » les regroupe en plus sous chaque personne (un item à plusieurs owners apparaît sous chacun) pour lire la file de chacun ; dans ces vues on ne peut ni réordonner ni imbriquer (glisser, ⌥↑/⌥↓, Tab désactivés). La vue choisie, la couleur des barres et « Afficher les items faits » sont mémorisées sur le navigateur.
+- Résolu quand : une bascule « Priorité / Date de début / Owner » sur la timeline affiche les tâches à plat, triées par date de début (chemin du parent en préfixe) pour lire l'enchaînement en escalier ; « Owner » les regroupe en plus sous chaque personne (un item à plusieurs owners apparaît sous chacun) pour lire la file de chacun ; dans ces vues on ne peut ni réordonner ni imbriquer (glisser, ⌥↑/⌥↓, Tab désactivés). La vue choisie, la couleur des barres et les statuts affichés (« Affichage » : masquer par exemple les items au dev terminé ou faits) sont mémorisés sur le navigateur.
 
 ### Dashboard
 - Problème : P12, P10, P6, P2
@@ -167,6 +162,6 @@ Principe clé : **la barre n'est pas dessinée, elle est calculée** à partir d
   - **Passe-t-on nos prochains jalons ?** (carte principale, à gauche des trois autres) : le prochain jalon en grand avec son verdict, puis les trois suivants. Vert : ça passe, avec la marge du dernier item rattaché. Ambre : marge d'une semaine ouvrée ou moins (ou un item rattaché non planifié). Rouge : un item finit après, avec le retard à rattraper pour lever l'alerte et les items en cause (+n j chacun).
   - **À vérifier avant démarrage** : les tâches qui démarrent dans les N jours ouvrés, avec deux vérifications cochables (conception métier + BPMN, conception technique + découpe en tickets). Chaque vérification est due à partir de son délai avant le démarrage, réglé dans les Paramètres (par défaut 5 et 3 jours ouvrés) ; due et pas cochée, elle est signalée. Cochée, elle garde la date et l'auteur (aussi dans le panneau de l'item).
   - **Dépendances et blocages à lever** : les tags actifs « Dépendance » et « Bloqué » des items non terminés, par date de début, avec leur raison, leur ancienneté et un bouton « Lever ».
-  - **Dérives** : tâches en retard ou en glissement (+n j), personnes en surcharge.
+  - **Dérives** : tâches en retard ou en glissement (+n j).
   - Chaque carte de synthèse a un point de la couleur de son état (vert : rien à faire, ambre : action à mener, rouge : problème aujourd'hui) et un texte factuel (« Marge de 6 j ouvrés », « 3 j ouvrés de retard à rattraper »), sans commentaire.
   - Chaque item ouvre son panneau ; une section vide le dit (« Rien à lever »).

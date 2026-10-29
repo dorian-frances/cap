@@ -3,12 +3,12 @@
 import type { ReactNode } from "react";
 import { ArrowRight, Check, Settings, Trash2 } from "lucide-react";
 import {
-  daysUntil, dueOn, fmtDay, orderItems, overdue, overloaded, prepLeads, slip, toIso, toLift, todayIso, upcomingMilestones, upcomingStarts,
+  daysUntil, dueOn, fmtDay, orderItems, overdue, prepLeads, slip, toLift, todayIso, upcomingMilestones, upcomingStarts,
   type Item, type Plan, type PrepKind, type TagEntry,
 } from "@/lib/plan";
 import type { Data, Store } from "@/lib/store";
 import { cx } from "@/lib/cx";
-import { Avatar, Button, Diamond, StatusIcon } from "../atoms";
+import { Button, Diamond, StatusIcon } from "../atoms";
 import { AvatarStack, IconButton, StatCard, TONE_DOT, Tooltip, type CardTone } from "../molecules";
 import { ContentPage } from "../templates/ContentPage";
 import { PREP, TAGS } from "../tokens";
@@ -43,9 +43,9 @@ export function PrepToggle({ item, kind, due, from, store, me }: { item: Item; k
 }
 
 /** Pilotage : ce qui demande une action, du plus urgent (démarrages à préparer) au plus diffus (dérives). */
-export default function DashboardView({ data, plan, store, me, onOpenItem, onOpenPerson, onView }: {
+export default function DashboardView({ data, plan, store, me, onOpenItem, onView }: {
   data: Data; plan: Plan; store: Store; me: string;
-  onOpenItem: (id: string) => void; onOpenPerson: (id: string) => void; onView: (v: View) => void;
+  onOpenItem: (id: string) => void; onView: (v: View) => void;
 }) {
   const { items, people } = data;
   const today = todayIso();
@@ -59,12 +59,11 @@ export default function DashboardView({ data, plan, store, me, onOpenItem, onOpe
   const [next, ...following] = upcomingMilestones(items, plan, today).slice(0, 4);
   const late = orderItems(items).filter((r) => !r.hasChildren && overdue(r.item, plan.spans.get(r.item.id)))
     .map(({ item }) => ({ item, span: plan.spans.get(item.id)!, n: slip(plan.spans.get(item.id)) })).sort((a, b) => b.n - a.n);
-  const over = [...overloaded(plan, today)].flatMap(([id, o]) => { const p = people.find((x) => x.id === id); return p ? [{ p, ...o }] : []; });
 
   // État de chaque carte : rouge = problème aujourd'hui, ambre = action à mener, vert = rien à faire.
   const prepTone: CardTone = starts.some((r) => r.due.length && r.days === 0) ? "bad" : dueChecks ? "warn" : "ok";
   const liftTone: CardTone = liftSoon ? "bad" : lift.length ? "warn" : "ok";
-  const driftTone: CardTone = over.length || late.some((r) => r.span.planned! < today) ? "bad" : late.length ? "warn" : "ok";
+  const driftTone: CardTone = late.some((r) => r.span.planned! < today) ? "bad" : late.length ? "warn" : "ok";
 
   const ownersOf = (i: Item) => people.filter((p) => i.owner_ids.includes(p.id));
   const parentPath = (i: Item) => {
@@ -128,7 +127,7 @@ export default function DashboardView({ data, plan, store, me, onOpenItem, onOpe
         <StatCard href="#demarrages" tone={prepTone} label="À vérifier avant démarrage" value={dueChecks ? plural(dueChecks, "vérification") : "Tout est prêt"} />
         <StatCard href="#dependances" tone={liftTone} label="Dépendances et blocages" value={lift.length ? `${lift.length} à lever` : "Rien à lever"}
           note={liftSoon > 0 && <Note tone="bad">{liftSoon} sur un démarrage proche</Note>} />
-        <StatCard href="#derives" tone={driftTone} label="Dérives" value={late.length || over.length ? `${plural(late.length, "retard")} · ${plural(over.length, "surcharge")}` : "Aucune"} />
+        <StatCard href="#derives" tone={driftTone} label="Dérives" value={late.length ? plural(late.length, "retard") : "Aucune"} />
       </div>
 
       <Block id="demarrages" title="Prochains démarrages" count={starts.length}
@@ -173,31 +172,15 @@ export default function DashboardView({ data, plan, store, me, onOpenItem, onOpe
         }) : <Empty>Rien à lever.</Empty>}
       </Block>
 
-      <Block id="derives" title="Dérives" count={late.length + over.length}>
-        <div className="grid divide-y divide-stone-100 sm:grid-cols-2 sm:divide-x sm:divide-y-0">
-          <div className="flex flex-col">
-            <h3 className="px-4 pb-1 pt-2.5 text-[11px] text-stone-400">Retards et glissements</h3>
-            {late.length ? late.map(({ item, span, n }) => (
-              <div key={item.id} data-row={item.id} className="flex items-center gap-2.5 px-4 py-2">
-                <StatusIcon status={item.status} />
-                <span className="flex min-w-0 flex-1">{title(item)}</span>
-                <span className="shrink-0 text-xs text-stone-500">{span.planned! < today ? "En retard" : "Glissement prévu"}</span>
-                <span className="shrink-0 rounded-[4px] bg-amber-100 px-1 text-[11px] font-medium leading-4 tabular-nums text-amber-800">+{n} j</span>
-              </div>
-            )) : <Empty>Aucun retard.</Empty>}
+      <Block id="derives" title="Dérives" count={late.length}>
+        {late.length ? late.map(({ item, span, n }) => (
+          <div key={item.id} data-row={item.id} className="flex items-center gap-2.5 px-4 py-2">
+            <StatusIcon status={item.status} />
+            <span className="flex min-w-0 flex-1">{title(item)}</span>
+            <span className="shrink-0 text-xs text-stone-500">{span.planned! < today ? "En retard" : "Glissement prévu"}</span>
+            <span className="shrink-0 rounded-[4px] bg-amber-100 px-1 text-[11px] font-medium leading-4 tabular-nums text-amber-800">+{n} j</span>
           </div>
-          <div className="flex flex-col">
-            <h3 className="px-4 pb-1 pt-2.5 text-[11px] text-stone-400">Surcharges</h3>
-            {over.length ? over.map(({ p, from, to, peak }) => (
-              <button key={p.id} data-person-row onClick={() => onOpenPerson(p.id)} className="flex items-center gap-2.5 px-4 py-2 text-left transition-colors hover:bg-stone-50">
-                <Avatar person={p} size={20} />
-                <span className="min-w-0 flex-1 truncate">{p.name}</span>
-                <span className="shrink-0 text-xs tabular-nums text-stone-500">du {fmtDay(toIso(from))} au {fmtDay(toIso(to))}</span>
-                <span className="shrink-0 rounded-[4px] bg-red-50 px-1 text-[11px] font-medium leading-4 tabular-nums text-red-700">{Math.round(peak * 100)} %</span>
-              </button>
-            )) : <Empty>Aucune surcharge.</Empty>}
-          </div>
-        </div>
+        )) : <Empty>Aucun retard.</Empty>}
       </Block>
     </ContentPage>
   );

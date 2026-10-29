@@ -50,13 +50,12 @@
 :root {
   --st-todo-bar: #f0eeeb; --st-todo-border: #e0dcd7; --st-todo-text: #57534e;
   --st-doing-bar: #fcebd0; --st-doing-border: #f4d4a2; --st-doing-text: #8a4a0b;
+  --st-devdone-bar: #ebe4fa; --st-devdone-border: #d3c6f2; --st-devdone-text: #4d3a8c;
   --st-done-bar: #ddf2e3; --st-done-border: #bfe3ca; --st-done-text: #1a5c31;
   --hatch-late: repeating-linear-gradient(135deg,rgba(220,38,38,.30) 0 2px,rgba(253,236,236,.95) 2px 5px);
   --hatch-late-border: #f0a8a8;
   --hatch-overrun: repeating-linear-gradient(135deg,rgba(217,119,6,.32) 0 2px,rgba(254,243,199,.95) 2px 5px);
   --hatch-overrun-border: #efc587;
-  --hatch-pause: repeating-linear-gradient(90deg,rgba(120,113,108,.35) 0 2px,rgba(250,250,249,.97) 2px 6px);
-  --hatch-pause-border: #c9c4bf;
   --hatch-absence: repeating-linear-gradient(135deg,#d6d3d1 0 2px,#f4f3f1 2px 5px);
   --hatch-absence-overlay: repeating-linear-gradient(135deg,rgba(168,162,158,.5) 0 2px,transparent 2px 5px);
   --weekend: rgba(120,113,108,.055);
@@ -99,13 +98,12 @@
 
   --st-todo-bar: #3d4047; --st-todo-border: #50535b; --st-todo-text: #c9cdd3;
   --st-doing-bar: #4a3a22; --st-doing-border: #6b5328; --st-doing-text: #f5c77e;
+  --st-devdone-bar: #352d50; --st-devdone-border: #4b3f70; --st-devdone-text: #cdbdfa;
   --st-done-bar: #23402f; --st-done-border: #2f5a41; --st-done-text: #8fdcaa;
   --hatch-late: repeating-linear-gradient(135deg,rgba(248,113,113,.45) 0 2px,rgba(69,35,38,.95) 2px 5px);
   --hatch-late-border: #7f3a40;
   --hatch-overrun: repeating-linear-gradient(135deg,rgba(245,166,35,.45) 0 2px,rgba(74,58,34,.95) 2px 5px);
   --hatch-overrun-border: #7a5a26;
-  --hatch-pause: repeating-linear-gradient(90deg,rgba(185,190,200,.4) 0 2px,rgba(56,58,64,.97) 2px 6px);
-  --hatch-pause-border: #5d6069;
   --hatch-absence: repeating-linear-gradient(135deg,#4a4c53 0 2px,#36383e 2px 5px);
   --hatch-absence-overlay: repeating-linear-gradient(135deg,rgba(160,165,175,.35) 0 2px,transparent 2px 5px);
   --weekend: rgba(0,0,0,.08);

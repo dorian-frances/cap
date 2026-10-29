@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import { Clock, Download, TriangleAlert } from "lucide-react";
 import {
-  isLate, lateAfter, targetsOf, orderItems, overdue, pauses, schedule, todayIso, fmtDay, type Absence, type Item, type Person, type Project, type Status,
+  isLate, lateAfter, targetsOf, orderItems, overdue, finished, schedule, todayIso, fmtDay, type Absence, type Item, type Person, type Project, type Status,
 } from "@/lib/plan";
 import { axis } from "@/lib/axis";
 import { supabase } from "@/lib/supabase";
@@ -37,6 +37,7 @@ export default function SharePage() {
   const statusOf = (id: string): Status => {
     const l = leavesOf(id);
     if (l.every((i) => i.status === "done")) return "done";
+    if (l.every(finished)) return "dev_done";
     return l.some((i) => i.status !== "todo") ? "doing" : "todo";
   };
   const top = rows.filter((r) => r.depth === 0);
@@ -81,7 +82,7 @@ export default function SharePage() {
           <StatCard label="Avancement" value={`${done} livrable${done > 1 ? "s" : ""} sur ${top.length} terminé${done > 1 ? "s" : ""}`}
             note={<span className="mt-1 flex gap-[3px]">{top.map((r) => {
               const s = statusOf(r.item.id);
-              return <span key={r.item.id} className="h-1.5 flex-1 rounded-full" style={{ background: s === "done" ? "var(--color-green-600)" : s === "doing" ? "var(--color-amber-600)" : "var(--color-stone-200)" }} />;
+              return <span key={r.item.id} className="h-1.5 flex-1 rounded-full" style={{ background: s === "done" ? "var(--color-green-600)" : s === "dev_done" ? "var(--st-devdone-text)" : s === "doing" ? "var(--color-amber-600)" : "var(--color-stone-200)" }} />;
             })}</span>} />
         </div>
 
@@ -110,14 +111,14 @@ export default function SharePage() {
                       <span className={`min-w-0 flex-1 truncate ${depth ? "text-[13px] text-stone-600" : "text-[13px] font-medium"}`}>{item.title || "Sans titre"}</span>
                       <span className={`whitespace-nowrap text-xs ${late ? "text-red-700" : behind ? "text-amber-700" : "text-stone-500"}`}
                         title={behind ? "Finit ou finira après sa fin prévue" : undefined}>
-                        {!span ? "À planifier" : st === "done" ? `Terminé le ${fmtDay(span.end)}` : behind ? "Glisse sur sa fin prévue" : `Fin prévue le ${fmtDay(span.end)}`}
+                        {!span ? "À planifier" : st === "done" ? `Terminé le ${fmtDay(span.end)}` : st === "dev_done" ? `Dev terminé le ${fmtDay(span.end)}, en attente de mise en production` : behind ? "Glisse sur sa fin prévue" : `Fin prévue le ${fmtDay(span.end)}`}
                         {late ? <TriangleAlert size={12} className="ml-1 inline -translate-y-px text-red-600" />
                           : behind && <Clock size={12} className="ml-1 inline -translate-y-px text-amber-600" />}
                       </span>
                     </div>
                     <div className="relative shrink-0" style={{ width: ax.width, ...weekendBg(ax.px) }}>
                       {span && <GanttBar ax={ax} span={span} label={item.title} tone={STATUS[st]} top={depth ? 10 : 12} height={depth ? 16 : 24}
-                        labelMode="inside" pauses={hasChildren ? [] : pauses(item, span)} title={`${item.title} · ${fmtDay(span.start)} → ${fmtDay(span.end)}`} lateFrom={lateFrom(item, span.end)} />}
+                        labelMode="inside" title={`${item.title} · ${fmtDay(span.start)} → ${fmtDay(span.end)}`} lateFrom={lateFrom(item, span.end)} />}
                     </div>
                   </div>
                 );
@@ -130,10 +131,9 @@ export default function SharePage() {
 
         <footer className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-stone-500">
           <Legend items={[
-            ...(["done", "doing", "todo"] as Status[]).map((k) => ({ label: k === "todo" ? "À venir" : k === "doing" ? "En cours" : "Terminé", swatch: { background: STATUS[k].bar, boxShadow: `inset 0 0 0 1px ${STATUS[k].border}` } })),
+            ...(["done", "dev_done", "doing", "todo"] as Status[]).map((k) => ({ label: k === "todo" ? "À venir" : k === "doing" ? "En cours" : k === "dev_done" ? "Dev terminé" : "Terminé", swatch: { background: STATUS[k].bar, boxShadow: `inset 0 0 0 1px ${STATUS[k].border}` } })),
             { label: "Retard sur l'estimation", swatch: { background: HATCH.overrun } },
             { label: "Après son jalon", swatch: { background: HATCH.late } },
-            { label: "En pause", swatch: { background: HATCH.pause } },
             { label: "Jalon", swatch: { borderLeft: "1px dashed var(--color-stone-500)" }, line: true },
             { label: "Aujourd'hui", swatch: { borderLeft: "1px solid var(--color-accent-500)" }, line: true },
           ]} />

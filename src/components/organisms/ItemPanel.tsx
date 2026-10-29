@@ -2,7 +2,7 @@
 
 import { ArrowRight, CalendarCheck, CalendarDays, Check, ChevronRight, CircleSlash, Clock, Divide, Link2, Play, Plus, Trash2, TriangleAlert, X } from "lucide-react";
 import {
-  absentSet, allocationOn, dueOn, prepLeads, itemOverload, isWeekend, pctLabel, toIso, lateAfter, lateBy, targetsOf, overdue, slip, toDay, todayIso, totalJh, unplannedReason, workJh, workingDays, fmtDay,
+  absentSet, dueOn, finished, prepLeads, isWeekend, lateAfter, lateBy, targetsOf, overdue, slip, toDay, todayIso, totalJh, unplannedReason, workJh, workingDays, fmtDay,
   type Item, type Plan, type TagEntry,
 } from "@/lib/plan";
 import type { Data, Store } from "@/lib/store";
@@ -10,7 +10,6 @@ import { cx } from "@/lib/cx";
 import type { PickKind } from "./Timeline";
 import { Avatar, Button, Chip, Diamond, InlineTextarea, Kbd, StatusIcon, Textarea } from "../atoms";
 import { IconButton, SectionTitle, SidePanel, SidePanelBody } from "../molecules";
-import AllocationControl, { withAllocation } from "./AllocationControl";
 import { PrepToggle } from "./DashboardView";
 import { PREP, STATUS, TAGS } from "../tokens";
 
@@ -38,18 +37,6 @@ export default function ItemPanel({ item, data, plan, store, me, closing, onClos
   const late = lateBy(item, span, items);
   const behind = !isParent && overdue(item, span);
   const today = todayIso();
-  // Surcharge des owners sur la période : ce qui s'additionne, et l'allocation qui la ferait disparaître.
-  const surcharge = isParent || item.status === "done" ? [] : [...itemOverload(plan, item)].map(([id, ov]) => {
-    const o = owners.find((x) => x.id === id)!;
-    const day = toIso(ov.from);
-    const mine = allocationOn(item, day, id);
-    const defect = Number(o.defect_share ?? 0);
-    const others = [...ov.others].map((oid) => items.find((i) => i.id === oid)!).filter(Boolean);
-    const room = 1 - defect - others.reduce((sum, x) => sum + allocationOn(x, day, id), 0);
-    const fit = [0.8, 0.5, 0.2].find((v) => v <= room + 1e-9 && v < mine);
-    return { o, ov, mine, defect, others, fit };
-  }).filter((x) => x.o);
-  const reduced = (item.allocations ?? []).filter((a) => a.pct < 1 && span && a.from <= span.end).sort((a, b) => a.from.localeCompare(b.from))[0];
   // Historique des tags : actifs d'abord, puis levés ; les plus récents en haut.
   const log = [...(item.tag_log ?? [])].sort((a, b) => Number(!!a.lifted_on) - Number(!!b.lifted_on) || (b.lifted_on ?? b.on).localeCompare(a.lifted_on ?? a.on));
   const setLog = (next: TagEntry[]) => store.updateItems([item.id], { tag_log: next });
@@ -74,40 +61,28 @@ export default function ItemPanel({ item, data, plan, store, me, closing, onClos
         const prevSpan = plan.spans.get(prev.id);
         const who = shared?.name ?? "l'équipe";
         const link = <button onClick={() => onOpen(prev.id)} className="underline decoration-stone-300 underline-offset-2 transition-colors hover:decoration-stone-500">{prev.title || "Sans titre"}</button>;
-        const pctPrev = shared ? allocationOn(prev, span.start, shared.id) : 1;
-        const parallel = prevSpan && prevSpan.end >= span.start && pctPrev < 1;
         why.push({
           icon: <ArrowRight size={14} />,
-          text: parallel
-            ? <>Avance en parallèle de {link}, où {who} est à {pctLabel(pctPrev)}</>
-            : overdue(prev, prevSpan)
+          text: overdue(prev, prevSpan)
               ? <>Attend que {who} termine {link}, en retard de {slip(prevSpan)} j et toujours en cours</>
             : <>Démarre quand {who} termine {link}{prevSpan && ` (${fmtDay(prevSpan.end)})`}</>,
         });
       } else {
         why.push({ icon: <ArrowRight size={14} />, text: item.status === "todo" ? "Démarre dès que possible, au plus tôt aujourd'hui" : `Démarrée au plus tôt (début du projet le ${fmtDay(data.project.start_date)})` });
       }
-      if (item.status === "doing" && (item.allocations ?? []).length)
-        why.push({ icon: <Clock size={14} />, text: `Allocation : ${[...(item.allocations ?? [])].sort((a, b) => a.from.localeCompare(b.from))
-          .map((a) => `${a.person ? `${people.find((p) => p.id === a.person)?.name ?? "?"} ` : ""}${pctLabel(a.pct)} à partir du ${fmtDay(a.from)}`).join(", ")}` });
-      // Débit de départ : capacité de chaque owner × son allocation, dans la limite de ce que lui laissent les défauts.
-      const effOf = (o: (typeof owners)[number], pct = allocationOn(item, span.start, o.id)) =>
-        Number(o.capacity) * Math.min(pct, 1 - Number(o.defect_share ?? 0));
-      const cap = owners.reduce((sum, o) => sum + effOf(o), 0) || owners.reduce((sum, o) => sum + effOf(o, 1), 0);
-      const who = owners.map((o) => {
-        const eff = effOf(o);
-        const cut = Number(o.defect_share) > 0 && eff < Number(o.capacity) * allocationOn(item, span.start, o.id);
-        return `${o.name}${eff < 1 ? ` à ${pctLabel(eff)}` : ""}${cut ? ` (${pctLabel(Number(o.defect_share))} sur les défauts)` : ""}`;
-      }).join(" + ");
+      // Débit : disponibilité de chaque owner (temps partiel).
+      const cap = owners.reduce((sum, o) => sum + Number(o.capacity), 0);
+      const who = owners.map((o) => `${o.name}${Number(o.capacity) < 1 ? ` à ${Math.round(Number(o.capacity) * 100)} %` : ""}`).join(" + ");
       const extra = Number(item.extra_jh ?? 0);
       why.push({ icon: <Divide size={14} />, text: extra
         ? `(${Number(item.estimate_jh)} j + ${extra} j d'avenant) ÷ ${who} = ${Math.ceil(workJh(item) / cap)} jours de travail · fin prévue le ${fmtDay(span.planned ?? span.end)} sans l'avenant`
         : `${Number(item.estimate_jh)} j ÷ ${who} = ${Math.ceil(Number(item.estimate_jh) / cap)} jours de travail · fin prévue le ${fmtDay(span.planned ?? span.end)}` });
-      if (item.status === "done" && item.done_on) {
+      if (finished(item) && item.done_on) {
         const n = slip(span);
+        const ended = `${item.status === "dev_done" ? "Dev terminé" : "Terminée"} le ${fmtDay(item.done_on)}`;
         why.push(n
-          ? { icon: <CalendarCheck size={14} />, text: `Terminée le ${fmtDay(item.done_on)}, ${n} j ouvré${n > 1 ? "s" : ""} après la fin prévue` }
-          : { icon: <CalendarCheck size={14} />, text: `Terminée le ${fmtDay(item.done_on)}${span.planned ? ", avant la fin prévue" : ", dans les temps"}` });
+          ? { icon: <CalendarCheck size={14} />, text: `${ended}, ${n} j ouvré${n > 1 ? "s" : ""} après la fin prévue` }
+          : { icon: <CalendarCheck size={14} />, text: `${ended}${span.planned ? ", avant la fin prévue" : ", dans les temps"}` });
       }
       const off = absentSet(absences);
       const lost = owners.map((o) => {
@@ -155,10 +130,10 @@ export default function ItemPanel({ item, data, plan, store, me, closing, onClos
                 {item.started_on ? `Depuis le ${fmtDay(item.started_on)}` : <span className="text-stone-500">Date de début</span>}
               </Chip>
             )}
-            {!isParent && item.status === "done" && (
-              <Chip className="tabular-nums" onClick={(e) => onPick("done", e.currentTarget)}>
+            {!isParent && finished(item) && (
+              <Chip className="tabular-nums" onClick={(e) => onPick(item.status === "dev_done" ? "dev_done" : "done", e.currentTarget)}>
                 <CalendarCheck size={12} className="text-stone-400" />
-                {item.done_on ? `Terminée le ${fmtDay(item.done_on)}` : <span className="text-stone-500">Date de fin</span>}
+                {item.done_on ? `${item.status === "dev_done" ? "Dev terminé" : "Terminée"} le ${fmtDay(item.done_on)}` : <span className="text-stone-500">Date de fin</span>}
               </Chip>
             )}
             {isParent ? <Chip disabled>Σ {totalJh(items, item.id)} j</Chip> : (
@@ -166,7 +141,7 @@ export default function ItemPanel({ item, data, plan, store, me, closing, onClos
                 {Number(item.estimate_jh) ? `${Number(item.estimate_jh).toLocaleString("fr-FR")} j` : <span className="text-stone-500">Estimer</span>}
               </Chip>
             )}
-            {!isParent && item.status !== "done" && (
+            {!isParent && !finished(item) && (
               <Chip className="tabular-nums" onClick={(e) => onPick("extra", e.currentTarget)}>
                 {Number(item.extra_jh) > 0
                   ? <span className="text-amber-700">+{Number(item.extra_jh).toLocaleString("fr-FR")} j d&apos;avenant</span>
@@ -213,7 +188,7 @@ export default function ItemPanel({ item, data, plan, store, me, closing, onClos
           )}
         </section>
 
-        {!isParent && item.status !== "done" && (
+        {!isParent && !finished(item) && (
           <section className="flex flex-col gap-2">
             <SectionTitle>Préparation</SectionTitle>
             {(["business", "tech"] as const).map((k) => {
@@ -233,41 +208,17 @@ export default function ItemPanel({ item, data, plan, store, me, closing, onClos
             <div className="flex items-center gap-2 font-semibold text-amber-900"><Clock size={14} className="text-amber-600" />
               {span!.planned! < today ? "En retard" : "Glissement prévu"} de {slip(span)} j ouvré{slip(span) > 1 ? "s" : ""} sur la fin prévue ({fmtDay(span!.planned!)})</div>
             <ul className="flex flex-col gap-1 text-[12.5px] text-amber-900/80">
-              {surcharge.length > 0 && <li>Surcharge de {surcharge.map((x) => x.o.name).join(", ")} (détail ci-dessous).</li>}
-              {Number(item.extra_jh) > 0 && <li>Avenant de +{Number(item.extra_jh).toLocaleString("fr-FR")} JH{item.extra_note ? ` : ${item.extra_note}` : ""}.</li>}
-              {reduced && <li>Allocation réduite à {pctLabel(reduced.pct)} à partir du {fmtDay(reduced.from, true)}</li>}
-              {span!.planned! < today && <li>Pas terminée à temps : elle garde son allocation jusqu&apos;à ce qu&apos;elle soit terminée, la suite de ses owners glisse.</li>}
+              {Number(item.extra_jh) > 0 && <li>Avenant de +{Number(item.extra_jh).toLocaleString("fr-FR")} JH{item.extra_note ? ` : ${item.extra_note}` : ""}{span!.planned! < today && ", ajouté après aujourd'hui"}.</li>}
+              {span!.planned! < today && <li>Pas terminée à temps : elle se prolonge jusqu&apos;à aujourd&apos;hui, la suite de ses owners glisse.</li>}
             </ul>
             {item.status === "doing" && (
               <div className="flex gap-1.5">
+                <Button size="sm" onClick={(e) => onPick("dev_done", e.currentTarget)}>Dev terminé…</Button>
                 <Button size="sm" onClick={(e) => onPick("done", e.currentTarget)}>Terminer…</Button>
               </div>
             )}
           </div>
         )}
-
-        {surcharge.map(({ o, ov, mine, defect, others, fit }) => (
-          <div key={o.id} className="flex animate-rise-in flex-col gap-2 rounded-lg border border-red-100 bg-red-50/60 px-3.5 py-3 text-[13px]">
-            <div className="flex items-center gap-2 font-semibold text-red-800"><TriangleAlert size={14} className="text-red-600" />
-              {o.name} en surcharge : {Math.round(ov.peak * 100)} % de son temps</div>
-            <div className="text-[12.5px] text-red-800/80">
-              {pctLabel(mine)} sur cette tâche
-              {defect > 0 && <> + {pctLabel(defect)} sur les défauts</>}
-              {others.map((x) => <span key={x.id}> + {pctLabel(allocationOn(x, toIso(ov.from), o.id))} sur{" "}
-                <button onClick={() => onOpen(x.id)} className="underline decoration-red-300 underline-offset-2">{x.title || "Sans titre"}</button></span>)}
-              , du {fmtDay(toIso(ov.from))} au {fmtDay(toIso(ov.to))} : impossible à tenir, la tâche n&apos;avance qu&apos;avec le temps qui reste et sa durée s&apos;allonge.
-            </div>
-            {fit !== undefined && (
-              <div className="flex gap-1.5">
-                <Button size="sm" onClick={() => store.updateItems([item.id], { allocations: withAllocation(item, o.id, fit, today, item.status === "doing") })}>
-                  Passer {o.name} à {pctLabel(fit)} sur cette tâche
-                </Button>
-              </div>
-            )}
-          </div>
-        ))}
-
-        {!isParent && item.status !== "done" && owners.length > 0 && <AllocationControl key={item.id} item={item} owners={owners} dated={item.status === "doing"} store={store} />}
 
         {late > 0 && missed.length > 0 && (
           <div className="flex animate-rise-in flex-col gap-2 rounded-lg border border-red-100 bg-red-50/60 px-3.5 py-3 text-[13px]">

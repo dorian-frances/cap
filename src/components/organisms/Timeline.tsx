@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useState, type CSSProperties, type ReactNode, type RefObject } from "react";
-import { GripVertical, Pause, Plus, TriangleAlert } from "lucide-react";
+import { GripVertical, Plus, TriangleAlert } from "lucide-react";
 import {
-  activeTags, openTags, allocationOn, itemOverload, pauses, pctLabel, workJh, lateBy, isLate, targetsOf, overdue, slip, todayIso, totalJh, unplannedReason, fmtDay,
+  activeTags, openTags, workJh, lateBy, isLate, targetsOf, overdue, slip, todayIso, totalJh, unplannedReason, fmtDay,
   type Item, type Person, type Plan, type Row, type Tag,
 } from "@/lib/plan";
 import type { Axis } from "@/lib/axis";
@@ -12,9 +12,9 @@ import { AvatarStack, AxisHeader, AxisLines, GanttBar, weekendBg } from "../mole
 import { Avatar, Chevron, StatusIcon } from "../atoms";
 import { STATUS, TAGS, personColor } from "../tokens";
 
-// start / done : date de démarrage ou de fin, demandée après le choix du statut.
+// start / dev_done / done : date de démarrage ou de fin du dev, demandée après le choix du statut.
 // extra : avenant (retard anticipé en JH).
-export type PickKind = "status" | "owners" | "estimate" | "extra" | "milestone" | "start" | "done" | "tags";
+export type PickKind = "status" | "owners" | "estimate" | "extra" | "milestone" | "start" | "dev_done" | "done" | "tags";
 export const LEFT = 380; // largeur par défaut de la colonne des titres, redimensionnable
 
 type Props = {
@@ -79,7 +79,7 @@ export default function Timeline({ scrollRef, ...p }: Props) {
     const late = lateBy(item, span, items) > 0;
     return (
       <GanttBar ax={ax} span={span} label={item.title || "Sans titre"} tone={tone} top={6} height={20} selected={selected}
-        faded={item.status === "done"} title={title} pauses={pauses(item, span)} lateFrom={late ? targetsOf(item, items)[0].milestone_date : null} />
+        faded={item.status === "done"} title={title} lateFrom={late ? targetsOf(item, items)[0].milestone_date : null} />
     );
   };
 
@@ -93,7 +93,6 @@ export default function Timeline({ scrollRef, ...p }: Props) {
     const span = plan.spans.get(item.id);
     const late = hasChildren ? isLate(item, plan, items) : lateBy(item, span, items) > 0;
     const owners = people.filter((o) => item.owner_ids.includes(o.id));
-    const over = hasChildren || item.status === "done" ? [] : [...itemOverload(plan, item)].map(([id, ov]) => ({ o: people.find((x) => x.id === id), ov }));
     const ring = sel ? "var(--color-accent-50)" : "var(--color-surface)";
     // Liseré à gauche de la couleur du tag actif le plus grave (un parent déplié ne reprend pas ceux de ses sous-items, visibles en dessous).
     const tags = hasChildren && !p.collapsed.has(item.id) ? openTags(item) : activeTags(items, item.id);
@@ -162,24 +161,10 @@ export default function Timeline({ scrollRef, ...p }: Props) {
             );
           })}
           {late && <TriangleAlert size={13} className="shrink-0 animate-fade-in text-red-600" aria-label="Après son jalon" />}
-          {!hasChildren && item.status === "doing" && (allocationOn(item, todayIso()) === 0 ? (
-            <span title="En pause : tous ses owners sont à 0 %, la tâche n'avance plus" aria-label="En pause"
-              className="flex size-4 shrink-0 animate-fade-in items-center justify-center rounded-[4px] bg-stone-100 text-stone-600">
-              <Pause size={9} fill="currentColor" strokeWidth={0} />
-            </span>
-          ) : allocationOn(item, todayIso()) < 1 && (
-            <span title="Allocation du jour" className="shrink-0 text-[11px] tabular-nums text-stone-400">{pctLabel(allocationOn(item, todayIso()))}</span>
-          ))}
           {!hasChildren && overdue(item, span) && (
             <span title={`${span!.planned! < todayIso() ? "En retard" : "Glissement prévu"} de ${slip(span)} j ouvrés (fin prévue le ${fmtDay(span!.planned!)})${Number(item.extra_jh) ? `, dont avenant de +${Number(item.extra_jh).toLocaleString("fr-FR")} JH${item.extra_note ? ` : ${item.extra_note}` : ""}` : ""}`}
               className="shrink-0 animate-fade-in rounded-[4px] bg-amber-100 px-1 text-[11px] font-medium tabular-nums leading-4 text-amber-800">
               +{slip(span)} j
-            </span>
-          )}
-          {over.length > 0 && (
-            <span title={over.map(({ o, ov }) => `${o?.name} à ${Math.round(ov.peak * 100)} % de son temps${Number(o?.defect_share) > 0 ? ` (dont ${pctLabel(Number(o!.defect_share))} défauts)` : ""}`).join(" · ")}
-              className="shrink-0 animate-fade-in rounded-[4px] bg-red-50 px-1 text-[11px] font-medium tabular-nums leading-4 text-red-700">
-              {Math.round(Math.max(...over.map((x) => x.ov.peak)) * 100)} %
             </span>
           )}
           <span className="flex-1" />

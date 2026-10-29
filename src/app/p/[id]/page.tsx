@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { ContextMenu } from "@base-ui/react/context-menu";
 import { Check, ChevronRight, Info, Link2, Plus } from "lucide-react";
-import { orderItems, overdue, overloaded, prepLeads, schedule, upcomingStarts, type Item, type Row } from "@/lib/plan";
+import { orderItems, overdue, prepLeads, schedule, upcomingStarts, type Item, type Row, type Status } from "@/lib/plan";
 import { axis, type Zoom } from "@/lib/axis";
 import { useProject } from "@/lib/store";
 import { supabase } from "@/lib/supabase";
@@ -43,7 +43,7 @@ export default function Page() {
   );
 }
 
-const CELL: Record<PickKind, string> = { status: "status", start: "status", done: "status", owners: "owners", estimate: "estimate", extra: "estimate", milestone: "title", tags: "title" };
+const CELL: Record<PickKind, string> = { status: "status", start: "status", dev_done: "status", done: "status", owners: "owners", estimate: "estimate", extra: "estimate", milestone: "title", tags: "title" };
 const typing = (t: EventTarget | null) => t instanceof HTMLElement && (t.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(t.tagName));
 
 function ProjectPage() {
@@ -73,7 +73,7 @@ function ProjectPage() {
   const [share, setShare] = useState(false);
   const [absenceDlg, setAbsenceDlg] = useState(false);
   const [colorBy, setColorBy] = useStored<"status" | "owner">("cap:colorBy", "status");
-  const [showDone, setShowDone] = useStored("cap:showDone", true);
+  const [hiddenStatus, setHiddenStatus] = useStored<Status[]>("cap:hiddenStatus", []);
   const [navCollapsed, setNavCollapsed] = useStored("cap:navCollapsed", false);
   // « start » : vue escalier, items à plat triés par date de début ; « owner » : idem, regroupés par owner.
   // Dans ces deux vues, la priorité n'est pas modifiable.
@@ -105,8 +105,8 @@ function ProjectPage() {
   // Lignes visibles : parents repliés et filtres.
   // Lignes visibles : planifiées (arbre, parents repliables) et groupe « À planifier » (sans owner ou sans estimation).
   const [rows, unplanned] = useMemo(() => {
-    const filtered = !showDone || ownerFilter.size > 0 || lateOnly;
-    const keepLeaf = (r: Row) => (showDone || r.item.status !== "done")
+    const filtered = hiddenStatus.length > 0 || ownerFilter.size > 0 || lateOnly;
+    const keepLeaf = (r: Row) => !hiddenStatus.includes(r.item.status)
       && (!ownerFilter.size || r.item.owner_ids.some((o) => ownerFilter.has(o)))
       && (!lateOnly || overdue(r.item, plan.spans.get(r.item.id)));
     const pinned = (id: string) => fresh.has(id) && (id === cursor || id === renaming);
@@ -125,7 +125,7 @@ function ProjectPage() {
       allRows.filter((r) => (r.hasChildren ? kept.has(r.item.id) || !filtered : kept.has(r.item.id)) && !hidden(r.item)),
       leaves,
     ];
-  }, [allRows, byId, collapsed, showDone, ownerFilter, lateOnly, plan, fresh, cursor, renaming, flat]);
+  }, [allRows, byId, collapsed, hiddenStatus, ownerFilter, lateOnly, plan, fresh, cursor, renaming, flat]);
   // Vue par owner : un item à plusieurs owners apparaît sous chacun.
   const groups = useMemo(() => sortBy !== "owner" ? undefined : (data?.people ?? [])
     .map((person) => ({ person, rows: rows.filter((r) => r.item.owner_ids.includes(person.id)) })).filter((g) => g.rows.length),
@@ -317,7 +317,8 @@ function ProjectPage() {
     ...(targets().length ? [
       { id: "s", group: "Sur l'item", label: "Changer le statut…", keys: ["S"], keywords: "etat avancement", run: () => pickFor("status") },
       { id: "start", group: "Sur l'item", label: "Démarrer…", keys: ["S", "2"], keywords: "en cours commencer date debut", run: () => pickFor("start") },
-      { id: "done", group: "Sur l'item", label: "Terminer…", keys: ["S", "3"], keywords: "fait fini date fin livrer", run: () => pickFor("done") },
+      { id: "dev_done", group: "Sur l'item", label: "Dev terminé…", keys: ["S", "3"], keywords: "dev fini attente production mep dependance", run: () => pickFor("dev_done") },
+      { id: "done", group: "Sur l'item", label: "Terminer…", keys: ["S", "4"], keywords: "fait fini date fin livrer production", run: () => pickFor("done") },
       { id: "a", group: "Sur l'item", label: "Assigner à…", keys: ["A"], keywords: "owner responsable personne", run: () => pickFor("owners") },
       { id: "e", group: "Sur l'item", label: "Définir l'estimation…", keys: ["E"], keywords: "charge jours jh", run: () => pickFor("estimate") },
       { id: "extra", group: "Sur l'item", label: "Ajouter un avenant…", keywords: "retard anticiper glissement jh supplementaire", run: () => pickFor("extra") },
@@ -353,11 +354,9 @@ function ProjectPage() {
     <AppShell
       sidebar={<Sidebar projectId={id} projectName={data.project.name} view={view} email={me}
         alerts={(() => {
-          const n = overloaded(plan).size;
           const due = upcomingStarts(items, plan, prepLeads(data.project)).filter((r) => r.due.length).length;
           return {
             ...(due ? { dashboard: { count: due, label: `${due} démarrage${due > 1 ? "s" : ""} à préparer` } } : {}),
-            ...(n ? { equipe: { count: n, label: `${n} personne${n > 1 ? "s" : ""} en surcharge` } } : {}),
           };
         })()}
         onView={(v) => setParams({ view: v, item: null })} onSearch={() => setPalette(true)} onShare={() => setShare(true)}
@@ -379,7 +378,7 @@ function ProjectPage() {
         {view === "timeline" && (
           <>
             <TimelineToolbar people={data.people} ownerFilter={ownerFilter} onOwnerFilter={setOwnerFilter} colorBy={colorBy} onColorBy={setColorBy} sortBy={sortBy} onSortBy={setSortBy}
-              showDone={showDone} onShowDone={setShowDone} lateOnly={lateOnly} onLateOnly={setLateOnly} zoom={zoomCtl} onNew={newFromCursor} />
+              hiddenStatus={hiddenStatus} onHiddenStatus={setHiddenStatus} lateOnly={lateOnly} onLateOnly={setLateOnly} zoom={zoomCtl} onNew={newFromCursor} />
             <ContextMenu.Root>
               <ContextMenu.Trigger className="flex min-h-0 flex-1 flex-col">
                 <Timeline items={items} people={data.people} plan={plan} rows={rows} ax={ax}
@@ -413,6 +412,7 @@ function ProjectPage() {
                   <MenuSeparator />
                   <MenuItem kbd="S" onClick={() => pickFor("status", ctxTargets())}>Statut…</MenuItem>
                   <MenuItem onClick={() => pickFor("start", ctxTargets())}>Démarrer le…</MenuItem>
+                  <MenuItem onClick={() => pickFor("dev_done", ctxTargets())}>Dev terminé le…</MenuItem>
                   <MenuItem onClick={() => pickFor("done", ctxTargets())}>Terminer le…</MenuItem>
                   <MenuItem kbd="A" onClick={() => pickFor("owners", ctxTargets())}>Owners…</MenuItem>
                   <MenuItem kbd="E" onClick={() => pickFor("estimate", ctxTargets())}>Estimation…</MenuItem>
@@ -444,8 +444,7 @@ function ProjectPage() {
             onOpenItem={(iid) => { setOpenPerson(null); openItem(iid); }}
             toolbar={<TeamToolbar zoom={zoomCtl} onAbsence={() => setAbsenceDlg(true)} onPerson={() => setOpenPerson(store.addPerson("Nouvelle personne").id)} />} />
         )}
-        {view === "dashboard" && <DashboardView data={data} plan={plan} store={store} me={me} onOpenItem={openItem}
-          onOpenPerson={(pid) => { closePanel(); setParams({ view: "equipe" }); setOpenPerson(pid); }} onView={(v) => setParams({ view: v, item: null })} />}
+        {view === "dashboard" && <DashboardView data={data} plan={plan} store={store} me={me} onOpenItem={openItem} onView={(v) => setParams({ view: v, item: null })} />}
         {view === "jalons" && <MilestonesView data={data} plan={plan} store={store} />}
         {view === "absences" && <AbsencesView data={data} store={store} onAdd={() => setAbsenceDlg(true)} />}
         {view === "settings" && <SettingsView data={data} store={store} me={me} />}

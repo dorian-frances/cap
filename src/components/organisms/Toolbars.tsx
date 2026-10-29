@@ -3,12 +3,12 @@
 import { Menu } from "@base-ui/react/menu";
 import { Popover } from "@base-ui/react/popover";
 import { ListFilter, Plus, SlidersHorizontal, X } from "lucide-react";
-import type { Person } from "@/lib/plan";
+import type { Person, Status } from "@/lib/plan";
 import type { Zoom } from "@/lib/axis";
 import { cx } from "@/lib/cx";
-import { Avatar, Button, buttonCls, Switch } from "../atoms";
+import { Avatar, Button, buttonCls, StatusIcon, Switch } from "../atoms";
 import { Legend, MenuCheckboxItem, MenuContent, MenuEmpty, MenuItem, MenuLabel, MenuSeparator, PopoverContent, SegmentedControl, Toolbar } from "../molecules";
-import { HATCH } from "../tokens";
+import { HATCH, STATUS } from "../tokens";
 
 const ZOOMS: { value: Zoom; label: string }[] = [{ value: "semaine", label: "Semaine" }, { value: "mois", label: "Mois" }, { value: "trimestre", label: "Trimestre" }];
 
@@ -21,10 +21,10 @@ export function ZoomControl({ zoom, onZoom, onToday }: { zoom: Zoom; onZoom: (z:
   );
 }
 
-export function TimelineToolbar({ people, ownerFilter, onOwnerFilter, colorBy, onColorBy, sortBy, onSortBy, showDone, onShowDone, lateOnly, onLateOnly, zoom, onNew }: {
+export function TimelineToolbar({ people, ownerFilter, onOwnerFilter, colorBy, onColorBy, sortBy, onSortBy, hiddenStatus, onHiddenStatus, lateOnly, onLateOnly, zoom, onNew }: {
   people: Person[]; ownerFilter: Set<string>; onOwnerFilter: (s: Set<string>) => void;
   colorBy: "status" | "owner"; onColorBy: (c: "status" | "owner") => void;
-  sortBy: "priority" | "start" | "owner"; onSortBy: (s: "priority" | "start" | "owner") => void; showDone: boolean; onShowDone: (v: boolean) => void;
+  sortBy: "priority" | "start" | "owner"; onSortBy: (s: "priority" | "start" | "owner") => void; hiddenStatus: Status[]; onHiddenStatus: (s: Status[]) => void;
   lateOnly: boolean; onLateOnly: (v: boolean) => void; zoom: React.ReactNode; onNew: () => void;
 }) {
   const n = ownerFilter.size + (lateOnly ? 1 : 0);
@@ -60,10 +60,13 @@ export function TimelineToolbar({ people, ownerFilter, onOwnerFilter, colorBy, o
         <PopoverContent className="w-64 p-3">
           <div className="mb-1.5 text-xs text-stone-500">Couleur des barres</div>
           <SegmentedControl stretch label="Couleur des barres" value={colorBy} onChange={onColorBy} options={[{ value: "status", label: "Statut" }, { value: "owner", label: "Owner" }]} />
-          <label className="mt-3 flex items-center justify-between">
-            <span>Afficher les items faits</span>
-            <Switch checked={showDone} onCheckedChange={onShowDone} />
-          </label>
+          <div className="mb-1 mt-3 text-xs text-stone-500">Afficher les items</div>
+          {(Object.keys(STATUS) as Status[]).map((s) => (
+            <label key={s} className="flex h-7 items-center justify-between">
+              <span className="flex items-center gap-2"><StatusIcon status={s} />{STATUS[s].label}</span>
+              <Switch checked={!hiddenStatus.includes(s)} onCheckedChange={(on) => onHiddenStatus(on ? hiddenStatus.filter((x) => x !== s) : [...hiddenStatus, s])} />
+            </label>
+          ))}
         </PopoverContent>
       </Popover.Root>
       <span className="flex-1" />
@@ -83,7 +86,6 @@ export function TeamToolbar({ zoom, onAbsence, onPerson }: { zoom: React.ReactNo
           { label: "Partiellement libre", swatch: { background: "var(--color-accent-50)" } },
           { label: "Libre", swatch: { boxShadow: "inset 0 0 0 1px var(--color-stone-200)" } },
           { label: "Absence", swatch: { background: HATCH.absence } },
-          { label: "Surcharge (> 100 %)", swatch: { background: "var(--color-red-100)" } },
         ]} />
       </span>
       <span className="flex-1" />

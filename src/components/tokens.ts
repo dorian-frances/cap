@@ -5,7 +5,8 @@ import type { PrepKind, Status, Tag } from "@/lib/plan";
 export const STATUS: Record<Status, { label: string; bar: string; border: string; text: string; key: string }> = {
   todo: { label: "À faire", bar: "var(--st-todo-bar)", border: "var(--st-todo-border)", text: "var(--st-todo-text)", key: "1" },
   doing: { label: "En cours", bar: "var(--st-doing-bar)", border: "var(--st-doing-border)", text: "var(--st-doing-text)", key: "2" },
-  done: { label: "Fait", bar: "var(--st-done-bar)", border: "var(--st-done-border)", text: "var(--st-done-text)", key: "3" },
+  dev_done: { label: "Dev terminé", bar: "var(--st-devdone-bar)", border: "var(--st-devdone-border)", text: "var(--st-devdone-text)", key: "3" },
+  done: { label: "Fait", bar: "var(--st-done-bar)", border: "var(--st-done-border)", text: "var(--st-done-text)", key: "4" },
 };
 
 // Ordre d'affichage : du plus grave au moins grave.
@@ -31,9 +32,6 @@ export const HATCH = {
   // Retard sur l'estimation (ambre) : distinct du dépassement de jalon (rouge).
   overrun: "var(--hatch-overrun)",
   overrunBorder: "var(--hatch-overrun-border)",
-  // En pause : rayures verticales grises, comme un « || ».
-  pause: "var(--hatch-pause)",
-  pauseBorder: "var(--hatch-pause-border)",
   absence: "var(--hatch-absence)",
   absenceOverlay: "var(--hatch-absence-overlay)",
 };

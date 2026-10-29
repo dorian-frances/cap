@@ -8,6 +8,13 @@ export function StatusIcon({ status, size = 14 }: { status: Status; size?: numbe
         <path d="m4.3 7.2 1.8 1.8 3.6-3.9" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
     );
+  if (status === "dev_done")
+    return (
+      <svg width={size} height={size} viewBox="0 0 14 14" fill="none" aria-label="Dev terminé" role="img" className="shrink-0">
+        <circle cx="7" cy="7" r="5.25" stroke="var(--st-devdone-text)" strokeWidth="1.5" />
+        <path d="m4.6 7.1 1.6 1.6 3.2-3.4" stroke="var(--st-devdone-text)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    );
   if (status === "doing")
     return (
       <svg width={size} height={size} viewBox="0 0 14 14" fill="none" aria-label="En cours" role="img" className="shrink-0">

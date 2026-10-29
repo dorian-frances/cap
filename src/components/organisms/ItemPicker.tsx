@@ -5,7 +5,7 @@ import { useRef, useState } from "react";
 import { Menu } from "@base-ui/react/menu";
 import { Popover } from "@base-ui/react/popover";
 import { Plus } from "lucide-react";
-import { isWeekend, planCapacity, startBefore, workJh, toDay, toIso, todayIso, fmtDay, type Item, type Plan, type Status, type Tag } from "@/lib/plan";
+import { isWeekend, startBefore, workJh, toDay, toIso, todayIso, fmtDay, type Item, type Plan, type Status, type Tag } from "@/lib/plan";
 import type { Data, Store } from "@/lib/store";
 import { cx } from "@/lib/cx";
 import type { PickKind } from "./Timeline";
@@ -20,7 +20,7 @@ export type PickerState = { kind: PickKind; ids: string[]; anchor: Element } | n
  * à sa date (`onStep`) ferme le menu sans fermer l'étape suivante.
  */
 export function ItemPicker({ state, data, plan, store, me, onClose: close, onStep, onManageTeam }: {
-  state: PickerState; data: Data; plan: Plan; store: Store; me: string; onClose: (kind: PickKind) => void; onStep: (kind: "start" | "done") => void; onManageTeam: () => void;
+  state: PickerState; data: Data; plan: Plan; store: Store; me: string; onClose: (kind: PickKind) => void; onStep: (kind: "start" | "dev_done" | "done") => void; onManageTeam: () => void;
 }) {
   if (!state) return null;
   const onClose = () => close(state.kind);
@@ -30,7 +30,7 @@ export function ItemPicker({ state, data, plan, store, me, onClose: close, onSte
   if (state.kind === "estimate") return <EstimatePopover state={state} items={items} store={store} onClose={onClose} />;
   if (state.kind === "tags") return <TagPopover state={state} items={items} store={store} me={me} onClose={onClose} />;
   if (state.kind === "extra") return <AvenantPopover state={state} items={items} store={store} onClose={onClose} />;
-  if (state.kind === "start" || state.kind === "done") return <DateStep kind={state.kind} state={state} items={items} data={data} plan={plan} store={store} onClose={onClose} />;
+  if (state.kind === "start" || state.kind === "dev_done" || state.kind === "done") return <DateStep kind={state.kind} state={state} items={items} data={data} plan={plan} store={store} onClose={onClose} />;
 
   // Le focus ne revient pas à l'ancre : sinon il serait repris au sélecteur suivant (raccourcis enchaînés, étape de date).
   const menu = (children: React.ReactNode, onKeyDown?: (e: React.KeyboardEvent) => void) => (
@@ -40,10 +40,12 @@ export function ItemPicker({ state, data, plan, store, me, onClose: close, onSte
   );
 
   if (state.kind === "status") {
-    // « À faire » s'applique tout de suite ; « En cours » et « Terminé » demandent une date.
+    // « À faire » s'applique tout de suite ; « En cours », « Dev terminé » et « Fait » demandent une date,
+    // sauf « Fait » après « Dev terminé » : la date de fin du dev est gardée (mise en production sans dev).
     const set = (v: Status) => {
       if (v === "todo") { store.updateItems(state.ids, { status: "todo", started_on: null, done_on: null }); onClose(); }
-      else onStep(v === "doing" ? "start" : "done");
+      else if (v === "done" && items.every((i) => i.status === "dev_done" && i.done_on)) { store.updateItems(state.ids, { status: "done" }); onClose(); }
+      else onStep(v === "doing" ? "start" : v);
     };
     return menu(
       <>
@@ -78,7 +80,7 @@ export function ItemPicker({ state, data, plan, store, me, onClose: close, onSte
           const free = plan.freeFrom.get(p.id);
           return (
             <MenuCheckboxItem key={p.id} checked={items.every((i) => i.owner_ids.includes(p.id))} onCheckedChange={(c) => toggle(p.id, c)}
-              trailing={<span className="text-xs text-stone-400">{planCapacity(p) < 1 ? `${Math.round(planCapacity(p) * 100)} % dispo · ` : ""}{free ? `libre le ${fmtDay(toIso(free))}` : "libre"}</span>}>
+              trailing={<span className="text-xs text-stone-400">{p.capacity < 1 ? `${Math.round(p.capacity * 100)} % dispo · ` : ""}{free ? `libre le ${fmtDay(toIso(free))}` : "libre"}</span>}>
               <Avatar person={p} /><span className="truncate">{p.name}</span>
             </MenuCheckboxItem>
           );
@@ -108,23 +110,23 @@ export function ItemPicker({ state, data, plan, store, me, onClose: close, onSte
 
 const prevWorkday = (iso: string) => { let d = toDay(iso) - 1; while (isWeekend(d)) d--; return toIso(d); };
 
-/** Date de démarrage ou de fin d'une ou plusieurs tâches (aujourd'hui par défaut, modifiable a posteriori). */
+/** Date de démarrage ou de fin du dev d'une ou plusieurs tâches (aujourd'hui par défaut, modifiable a posteriori). */
 function DateStep({ kind, state, items, data, plan, store, onClose }: {
-  kind: "start" | "done"; state: NonNullable<PickerState>; items: Item[]; data: Data; plan: Plan; store: Store; onClose: () => void;
+  kind: "start" | "dev_done" | "done"; state: NonNullable<PickerState>; items: Item[]; data: Data; plan: Plan; store: Store; onClose: () => void;
 }) {
   const cal = useRef<HTMLDivElement>(null);
   const today = todayIso();
   const current = items.length === 1 ? (kind === "start" ? items[0].started_on : items[0].done_on) : null;
   const apply = (iso: string) => {
     for (const it of items) {
-      if (kind === "done") {
+      if (kind !== "start") {
         // Sans date de début : celle du calcul si la tâche était déjà en cours, sinon déduite de l'estimation.
         const computed = plan.spans.get(it.id)?.start;
         const owners = data.people.filter((p) => it.owner_ids.includes(p.id));
         const began = it.started_on
           ?? (it.status === "doing" && computed && computed <= iso ? computed : startBefore(iso, workJh(it), owners, data.absences));
-        store.updateItems([it.id], { status: "done", done_on: iso, started_on: began > iso ? iso : began });
-      } else if (it.status === "done") {
+        store.updateItems([it.id], { status: kind, done_on: iso, started_on: began > iso ? iso : began });
+      } else if (it.status === "done" || it.status === "dev_done") {
         store.updateItems([it.id], { started_on: it.done_on && iso > it.done_on ? it.done_on : iso });
       } else {
         store.updateItems([it.id], { status: "doing", started_on: iso, done_on: null });
@@ -137,12 +139,12 @@ function DateStep({ kind, state, items, data, plan, store, onClose }: {
     <Popover.Root open onOpenChange={(o) => !o && onClose()}>
       <PopoverContent anchor={state.anchor} finalFocus={false} initialFocus={() => cal.current?.querySelector<HTMLElement>('[data-day][tabindex="0"]') ?? true} className="min-w-0 p-2.5">
         <div className="mb-2 flex items-center gap-2 px-1.5 text-xs text-stone-500">
-          <StatusIcon status={kind === "start" ? "doing" : "done"} size={12} />
-          {kind === "start" ? "En cours depuis le…" : "Terminé le…"}
+          <StatusIcon status={kind === "start" ? "doing" : kind} size={12} />
+          {kind === "start" ? "En cours depuis le…" : kind === "dev_done" ? "Dev terminé le…" : "Terminé le…"}
           <span className="flex-1" /><Kbd>↵</Kbd>
         </div>
         <div ref={cal}><Calendar start={current ?? today} end={current ?? today} onPick={apply} /></div>
-        {kind === "done" && items.some((i) => !i.started_on) && (
+        {kind !== "start" && items.some((i) => !i.started_on) && (
           <p className="mt-1.5 max-w-[252px] px-1.5 text-[11px] leading-snug text-stone-400">Sans date de début, elle est déduite de l&apos;estimation ; modifiable ensuite depuis le panneau.</p>
         )}
         <div className="mt-2 flex items-center gap-1.5 border-t border-stone-100 pt-2.5">
@@ -224,7 +226,7 @@ function AvenantPopover({ state, items, store, onClose }: { state: NonNullable<P
           </div>
           <input aria-label="Motif de l'avenant" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Motif (ex. dépendance API en retard)"
             className="h-8 rounded-[7px] border border-stone-200 px-2.5 text-[13px] outline-none transition-shadow focus:border-accent-500 focus:ring-[3px] focus:ring-accent-100" />
-          <p className="text-xs text-stone-400">S&apos;ajoute à l&apos;estimation : la tâche occupe ses owners plus longtemps et la suite glisse. La fin prévue ne change pas, le retard se voit en hachures.</p>
+          <p className="text-xs text-stone-400">S&apos;ajoute à l&apos;estimation, ou après aujourd&apos;hui si la tâche est déjà en retard : elle occupe ses owners plus longtemps et la suite glisse. La fin prévue ne change pas, le retard se voit en hachures.</p>
           <div className="flex justify-end gap-1.5">
             {one && Number(one.extra_jh) > 0 && <Button type="button" size="sm" variant="ghost" onClick={() => save("0")}>Retirer</Button>}
             <Button type="submit" size="sm" variant="primary">Appliquer</Button>

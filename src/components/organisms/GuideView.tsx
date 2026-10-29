@@ -5,6 +5,7 @@ import { ArrowRight, CalendarCheck, CalendarDays, Clock, Diamond as DiamondIcon,
 import { Button, Kbd, StatusIcon, Swatch } from "../atoms";
 import { ContentPage, Section } from "../templates";
 import { HATCH, STATUS } from "../tokens";
+import type { Status } from "@/lib/plan";
 import type { View } from "./Sidebar";
 
 /** Guide de prise en main : la mentalité de Cap, les questions auxquelles il répond, où les trouver. */
@@ -17,7 +18,7 @@ export default function GuideView({ onView, onShare, onPalette }: { onView: (v: 
     <ContentPage title="Guide">
       <section className="flex flex-col gap-1 rounded-xl border border-stone-200 bg-canvas p-5">
         <p className="text-[15px] font-medium leading-snug">Les barres ne se dessinent pas, elles se calculent.</p>
-        <p className="text-[13px] text-stone-600">Une date ne convient pas : changer la priorité, les owners, l&apos;allocation ou le périmètre.</p>
+        <p className="text-[13px] text-stone-600">Une date ne convient pas : changer la priorité, les owners ou le périmètre.</p>
       </section>
 
       <Section title="Principes">
@@ -36,8 +37,8 @@ export default function GuideView({ onView, onShare, onPalette }: { onView: (v: 
           <Question q="Qu'est-ce qui est en retard ?" links={go("timeline", "Timeline", <GanttChart size={13} />)}>
             Au-delà de la fin prévue : hachures ambre et « +n j », la suite glisse. Retard anticipé : avenant.
           </Question>
-          <Question q="Est-ce que la charge tient ?" links={<>{go("equipe", "Équipe", <Users size={13} />)}{go("absences", "Absences", <CalendarDays size={13} />)}</>}>
-            Au-delà de 100 % (tâches + défauts) : surcharge, en rouge.
+          <Question q="Qui fait quoi, et quand se libère-t-on ?" links={<>{go("equipe", "Équipe", <Users size={13} />)}{go("absences", "Absences", <CalendarDays size={13} />)}</>}>
+            Occupation par semaine, absences comprises, et date à laquelle chacun est libre.
           </Question>
           <Question q="Qu'est-ce qui n'est pas planifiable ?" links={go("timeline", "Timeline", <GanttChart size={13} />)}>
             Sans owner ou sans estimation : groupe « À planifier », en bas de la timeline.
@@ -57,12 +58,14 @@ export default function GuideView({ onView, onShare, onPalette }: { onView: (v: 
           <ArrowRight size={14} className="text-stone-300" />
           <Step status="doing" label="En cours" note="date de début" />
           <ArrowRight size={14} className="text-stone-300" />
-          <Step status="done" label="Terminée" note="date de fin" />
+          <Step status="dev_done" label="Dev terminé" note="date de fin du dev" />
+          <ArrowRight size={14} className="text-stone-300" />
+          <Step status="done" label="Fait" note="en production" />
         </div>
         <ul className="flex list-disc flex-col gap-1 pl-5 text-[13px] text-stone-600 marker:text-stone-300">
-          <li>Pas terminée = en cours : elle occupe ses owners.</li>
-          <li>Allocation : part du temps total, 100 % par défaut, 0 % = pause.</li>
-          <li>Défauts : réservés en premier.</li>
+          <li>Pas terminée = en cours : elle occupe ses owners jusqu&apos;à aujourd&apos;hui.</li>
+          <li>Plusieurs tâches en cours en parallèle : chacune avance à pleine disponibilité.</li>
+          <li>Dev terminé : owners libérés, l&apos;item attend sa mise en production.</li>
           <li>« Pourquoi ces dates » : dans le panneau de l&apos;item.</li>
         </ul>
       </Section>
@@ -71,12 +74,11 @@ export default function GuideView({ onView, onShare, onPalette }: { onView: (v: 
         <div className="grid gap-x-6 gap-y-2.5 text-[13px] text-stone-600 sm:grid-cols-2">
           <Legend swatch={<Bar status="todo" />}>À faire</Legend>
           <Legend swatch={<Bar status="doing" />}>En cours</Legend>
-          <Legend swatch={<Bar status="done" />}>Terminée</Legend>
+          <Legend swatch={<Bar status="dev_done" />}>Dev terminé, pas encore en production</Legend>
+          <Legend swatch={<Bar status="done" />}>Fait</Legend>
           <Legend swatch={<Swatch style={{ background: HATCH.overrun }} />}>Au-delà de la fin prévue : retard ou avenant</Legend>
           <Legend swatch={<Swatch style={{ background: HATCH.late }} />}>Après son jalon cible</Legend>
-          <Legend swatch={<Swatch style={{ background: HATCH.pause }} />}>En pause (tous les owners à 0 %)</Legend>
           <Legend swatch={<span className="rounded-[4px] bg-amber-100 px-1 text-[11px] font-medium leading-4 text-amber-800">+2 j</span>}>Glissement sur la fin prévue</Legend>
-          <Legend swatch={<span className="whitespace-nowrap rounded-[4px] bg-red-50 px-1 text-[11px] font-medium leading-4 text-red-700">120 %</span>}>Un owner en surcharge</Legend>
           <Legend swatch={<Swatch line style={{ borderLeft: "1px dashed var(--color-stone-500)" }} />}>Jalon</Legend>
           <Legend swatch={<Swatch line style={{ borderLeft: "1px solid var(--color-accent-500)" }} />}>Aujourd&apos;hui</Legend>
         </div>
@@ -86,7 +88,7 @@ export default function GuideView({ onView, onShare, onPalette }: { onView: (v: 
         <div className="grid gap-x-6 gap-y-2 text-[13px] text-stone-600 sm:grid-cols-2">
           <Shortcut keys={["⌘", "K"]}>Palette de commandes</Shortcut>
           <Shortcut keys={["C"]}>Nouvel item</Shortcut>
-          <Shortcut keys={["S"]}>Statut (puis <Kbd>2</Kbd> démarrer, <Kbd>3</Kbd> terminer)</Shortcut>
+          <Shortcut keys={["S"]}>Statut (puis <Kbd>2</Kbd> démarrer, <Kbd>3</Kbd> dev terminé, <Kbd>4</Kbd> fait)</Shortcut>
           <Shortcut keys={["A"]}>Assigner</Shortcut>
           <Shortcut keys={["E"]}>Estimation</Shortcut>
           <Shortcut keys={["M"]}>Jalons cibles</Shortcut>
@@ -116,13 +118,13 @@ const Question = ({ q, links, children }: { q: string; links: ReactNode; childre
   </div>
 );
 
-const Step = ({ status, label, note }: { status: "todo" | "doing" | "done"; label: string; note: string }) => (
+const Step = ({ status, label, note }: { status: Status; label: string; note: string }) => (
   <span className="flex items-center gap-2 rounded-lg border border-stone-200 px-2.5 py-1.5">
     <StatusIcon status={status} /><span className="font-medium">{label}</span><span className="text-xs text-stone-500">{note}</span>
   </span>
 );
 
-const Bar = ({ status }: { status: "todo" | "doing" | "done" }) => (
+const Bar = ({ status }: { status: Status }) => (
   <span className="h-2.5 w-5 rounded-[3px]" style={{ background: STATUS[status].bar, boxShadow: `inset 0 0 0 1px ${STATUS[status].border}` }} />
 );
 
