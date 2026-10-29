@@ -10,6 +10,7 @@ Stack : Next.js (tout en client components) + Supabase (Postgres, Auth, RLS). D�
 | Fichier | Rôle |
 |---|---|
 | `src/lib/plan.ts` | Domaine : types + calcul du planning (fonctions pures, testées) |
+| `src/lib/excel.ts` | Macro-plan à coller dans Excel : grille, HTML coloré et texte tabulé (testé) |
 | `src/lib/axis.ts`, `calendar.ts` | Échelle de temps, grille du sélecteur de dates (testée) |
 | `src/lib/store.ts` | État d'un projet : chargement, écritures optimistes, annulation |
 | `src/lib/useStored.ts` | `useState` mémorisé dans le localStorage (préférences d'affichage) |

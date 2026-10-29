@@ -105,6 +105,11 @@ Principe clé : **la barre n'est pas dessinée, elle est calculée** à partir d
 - Pour qui : devs, manager, client
 - Résolu quand : n'importe qui avec le lien voit le plan à jour, sans compte et sans pouvoir le modifier ; le lien est régénérable.
 
+### Export Excel du macro-plan
+- Problème : P7
+- Pour qui : PM (macro-plan Excel envoyé au client ou à la direction, aujourd'hui recopié à la main)
+- Résolu quand : « Copier pour Excel » (en-tête, ou la palette) copie le macro-plan, que la PM colle dans un onglet de son fichier Excel existant (SharePoint compris), sans remise en forme : une ligne par item dans l'ordre de priorité, titre indenté selon l'imbrication (parents en gras), JH (« 3+2 » avec avenant), owners, pastille de statut (grise à faire, orange en cours, verte terminé, rouge en retard : après un jalon ciblé ou après la fin prévue), début, fin, jalons ciblés, raison s'il n'est pas planifiable ; puis une colonne par semaine où la barre s'écrit en tirets, sans couleur (├ début, ─ en cours, ○ livraison prévue, ● livré, △ retard prévu, ▲ livré en retard) ; les tirets sont plus larges que la date d'en-tête, pour qu'ajuster la largeur des colonnes ne laisse pas de blancs. Au-dessus : la légende, les jalons (fond jaune, à partir de leur semaine, en escalier quand ils se chevauchent, en cellules fusionnées pour ne pas élargir les colonnes) et l'en-tête en bleu ; la semaine en cours est bordée de rouge.
+
 ### Éditeurs par email
 - Problème : P7
 - Pour qui : PM, tech lead
