@@ -3,7 +3,7 @@ import { finished, isLate, lateBy, monday, orderItems, slip, toDay, toIso, today
 
 // Excel ne lit pas les variables CSS : couleurs des macro-plans Excel (pastilles, en-tête, jalons, trait du jour).
 const COLOR = {
-  todo: "#a8a29e", doing: "#f08c00", dev_done: "#7048e8", done: "#2f9e44", late: "#e03131",
+  todo: "#a8a29e", doing: "#f08c00", paused: "#868e96", dev_done: "#7048e8", done: "#2f9e44", late: "#e03131",
   head: "#4472c4", milestone: "#ffff00", today: "#e03131",
 };
 const FIXED = ["Fonctionnalité", "JH", "Owner", "Statut", "Début", "Fin", "Jalons", "Remarque"];
@@ -14,7 +14,7 @@ const BAR = 12;
 // Caractères d'un libellé de jalon par colonne de semaine : au-delà, il s'étale sur la semaine suivante.
 const PER_WEEK = 12;
 export const LEGEND = [
-  "├ Début · ─ En cours · ○ Livraison prévue · ● Livré · △ Retard prévu · ▲ Livré en retard · pastille violette : dev terminé, pas encore en production",
+  "├ Début · ─ En cours · ○ Livraison prévue · ● Livré · △ Retard prévu · ▲ Livré en retard · pastille violette : dev terminé, pas encore en production · grise : en pause",
   "Pastille de statut : grise à faire · orange en cours · verte terminé · rouge en retard · Trait rouge : cette semaine",
 ];
 

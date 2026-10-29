@@ -20,7 +20,7 @@ export type PickerState = { kind: PickKind; ids: string[]; anchor: Element } | n
  * à sa date (`onStep`) ferme le menu sans fermer l'étape suivante.
  */
 export function ItemPicker({ state, data, plan, store, me, onClose: close, onStep, onManageTeam }: {
-  state: PickerState; data: Data; plan: Plan; store: Store; me: string; onClose: (kind: PickKind) => void; onStep: (kind: "start" | "dev_done" | "done") => void; onManageTeam: () => void;
+  state: PickerState; data: Data; plan: Plan; store: Store; me: string; onClose: (kind: PickKind) => void; onStep: (kind: PickKind) => void; onManageTeam: () => void;
 }) {
   if (!state) return null;
   const onClose = () => close(state.kind);
@@ -30,7 +30,7 @@ export function ItemPicker({ state, data, plan, store, me, onClose: close, onSte
   if (state.kind === "estimate") return <EstimatePopover state={state} items={items} store={store} onClose={onClose} />;
   if (state.kind === "tags") return <TagPopover state={state} items={items} store={store} me={me} onClose={onClose} />;
   if (state.kind === "extra") return <AvenantPopover state={state} items={items} store={store} onClose={onClose} />;
-  if (state.kind === "start" || state.kind === "dev_done" || state.kind === "done") return <DateStep kind={state.kind} state={state} items={items} data={data} plan={plan} store={store} onClose={onClose} />;
+  if (state.kind === "start" || state.kind === "paused" || state.kind === "resume" || state.kind === "dev_done" || state.kind === "done") return <DateStep kind={state.kind} state={state} items={items} data={data} plan={plan} store={store} onClose={onClose} />;
 
   // Le focus ne revient pas à l'ancre : sinon il serait repris au sélecteur suivant (raccourcis enchaînés, étape de date).
   const menu = (children: React.ReactNode, onKeyDown?: (e: React.KeyboardEvent) => void) => (
@@ -40,27 +40,27 @@ export function ItemPicker({ state, data, plan, store, me, onClose: close, onSte
   );
 
   if (state.kind === "status") {
-    // « À faire » s'applique tout de suite ; « En cours », « Dev terminé » et « Fait » demandent une date,
+    // « À faire » s'applique tout de suite ; les autres demandent une date (« En cours » sur une tâche en pause : sa reprise),
     // sauf « Fait » après « Dev terminé » : la date de fin du dev est gardée (mise en production sans dev).
     const set = (v: Status) => {
-      if (v === "todo") { store.updateItems(state.ids, { status: "todo", started_on: null, done_on: null }); onClose(); }
+      if (v === "todo") { store.updateItems(state.ids, { status: "todo", started_on: null, done_on: null, pauses: [] }); onClose(); }
       else if (v === "done" && items.every((i) => i.status === "dev_done" && i.done_on)) { store.updateItems(state.ids, { status: "done" }); onClose(); }
-      else onStep(v === "doing" ? "start" : v);
+      else onStep(v === "doing" ? (items.every((i) => i.status === "paused") ? "resume" : "start") : v);
     };
     return menu(
       <>
         <MenuHeader label="Changer le statut…" kbd="S" />
         <Menu.RadioGroup value={common("status") ?? ""} onValueChange={(v) => set(v as Status)}>
           {(Object.keys(STATUS) as Status[]).map((s) => (
-            <MenuRadioItem key={s} value={s} kbd={STATUS[s].key}
-              trailing={s !== "todo" && <span className="text-xs text-stone-400">{s === "doing" ? "depuis le…" : "le…"}</span>}>
+            <MenuRadioItem key={s} value={s} kbd={STATUS[s].key.toUpperCase()}
+              trailing={s !== "todo" && <span className="text-xs text-stone-400">{s === "doing" || s === "paused" ? "depuis le…" : "le…"}</span>}>
               <StatusIcon status={s} />{STATUS[s].label}
             </MenuRadioItem>
           ))}
         </Menu.RadioGroup>
       </>,
       (e) => {
-        const s = (Object.keys(STATUS) as Status[]).find((k) => STATUS[k].key === e.key);
+        const s = (Object.keys(STATUS) as Status[]).find((k) => STATUS[k].key === e.key.toLowerCase());
         if (s) { e.preventDefault(); set(s); }
       },
     );
@@ -110,23 +110,39 @@ export function ItemPicker({ state, data, plan, store, me, onClose: close, onSte
 
 const prevWorkday = (iso: string) => { let d = toDay(iso) - 1; while (isWeekend(d)) d--; return toIso(d); };
 
-/** Date de démarrage ou de fin du dev d'une ou plusieurs tâches (aujourd'hui par défaut, modifiable a posteriori). */
+type DateKind = "start" | "paused" | "resume" | "dev_done" | "done";
+const DATE_LABEL: Record<DateKind, [Status, string]> = {
+  start: ["doing", "En cours depuis le…"], paused: ["paused", "En pause depuis le…"], resume: ["doing", "Reprise le…"],
+  dev_done: ["dev_done", "Dev terminé le…"], done: ["done", "Terminé le…"],
+};
+/** Pauses de l'item, la pause ouverte close à la reprise `iso`. */
+const closePause = (it: Item, iso: string) => (it.pauses ?? []).map((p) => (p.until ? p : { ...p, until: iso < p.from ? p.from : iso }));
+
+/** Date de démarrage, de pause, de reprise ou de fin du dev d'une ou plusieurs tâches (aujourd'hui par défaut, modifiable a posteriori). */
 function DateStep({ kind, state, items, data, plan, store, onClose }: {
-  kind: "start" | "dev_done" | "done"; state: NonNullable<PickerState>; items: Item[]; data: Data; plan: Plan; store: Store; onClose: () => void;
+  kind: DateKind; state: NonNullable<PickerState>; items: Item[]; data: Data; plan: Plan; store: Store; onClose: () => void;
 }) {
   const cal = useRef<HTMLDivElement>(null);
   const today = todayIso();
-  const current = items.length === 1 ? (kind === "start" ? items[0].started_on : items[0].done_on) : null;
+  const one = items.length === 1 ? items[0] : null;
+  const current = !one ? null : kind === "start" ? one.started_on : kind === "paused" ? one.pauses?.find((p) => !p.until)?.from : kind === "resume" ? null : one.done_on;
   const apply = (iso: string) => {
     for (const it of items) {
-      if (kind !== "start") {
+      if (kind === "dev_done" || kind === "done") {
         // Sans date de début : celle du calcul si la tâche était déjà en cours, sinon déduite de l'estimation.
         const computed = plan.spans.get(it.id)?.start;
         const owners = data.people.filter((p) => it.owner_ids.includes(p.id));
         const began = it.started_on
           ?? (it.status === "doing" && computed && computed <= iso ? computed : startBefore(iso, workJh(it), owners, data.absences));
-        store.updateItems([it.id], { status: kind, done_on: iso, started_on: began > iso ? iso : began });
-      } else if (it.status === "done" || it.status === "dev_done") {
+        store.updateItems([it.id], { status: kind, done_on: iso, started_on: began > iso ? iso : began, pauses: closePause(it, iso) });
+      } else if (kind === "paused") {
+        const open = it.status === "paused" && it.pauses?.find((p) => !p.until);
+        store.updateItems([it.id], open
+          ? { pauses: it.pauses!.map((p) => (p === open ? { ...p, from: iso } : p)) } // date de la pause en cours modifiée
+          : { status: "paused", started_on: it.started_on && it.started_on <= iso ? it.started_on : iso, done_on: null, pauses: [...closePause(it, iso), { from: iso }] });
+      } else if (kind === "resume") {
+        store.updateItems([it.id], { status: "doing", pauses: closePause(it, iso) });
+      } else if (it.status === "done" || it.status === "dev_done" || it.status === "paused") {
         store.updateItems([it.id], { started_on: it.done_on && iso > it.done_on ? it.done_on : iso });
       } else {
         store.updateItems([it.id], { status: "doing", started_on: iso, done_on: null });
@@ -139,12 +155,12 @@ function DateStep({ kind, state, items, data, plan, store, onClose }: {
     <Popover.Root open onOpenChange={(o) => !o && onClose()}>
       <PopoverContent anchor={state.anchor} finalFocus={false} initialFocus={() => cal.current?.querySelector<HTMLElement>('[data-day][tabindex="0"]') ?? true} className="min-w-0 p-2.5">
         <div className="mb-2 flex items-center gap-2 px-1.5 text-xs text-stone-500">
-          <StatusIcon status={kind === "start" ? "doing" : kind} size={12} />
-          {kind === "start" ? "En cours depuis le…" : kind === "dev_done" ? "Dev terminé le…" : "Terminé le…"}
+          <StatusIcon status={DATE_LABEL[kind][0]} size={12} />
+          {DATE_LABEL[kind][1]}
           <span className="flex-1" /><Kbd>↵</Kbd>
         </div>
         <div ref={cal}><Calendar start={current ?? today} end={current ?? today} onPick={apply} /></div>
-        {kind !== "start" && items.some((i) => !i.started_on) && (
+        {(kind === "dev_done" || kind === "done") && items.some((i) => !i.started_on) && (
           <p className="mt-1.5 max-w-[252px] px-1.5 text-[11px] leading-snug text-stone-400">Sans date de début, elle est déduite de l&apos;estimation ; modifiable ensuite depuis le panneau.</p>
         )}
         <div className="mt-2 flex items-center gap-1.5 border-t border-stone-100 pt-2.5">

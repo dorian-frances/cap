@@ -44,7 +44,7 @@ export default function Page() {
   );
 }
 
-const CELL: Record<PickKind, string> = { status: "status", start: "status", dev_done: "status", done: "status", owners: "owners", estimate: "estimate", extra: "estimate", milestone: "title", tags: "title" };
+const CELL: Record<PickKind, string> = { status: "status", start: "status", paused: "status", resume: "status", dev_done: "status", done: "status", owners: "owners", estimate: "estimate", extra: "estimate", milestone: "title", tags: "title" };
 const typing = (t: EventTarget | null) => t instanceof HTMLElement && (t.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(t.tagName));
 
 function ProjectPage() {
@@ -328,6 +328,8 @@ function ProjectPage() {
     ...(targets().length ? [
       { id: "s", group: "Sur l'item", label: "Changer le statut…", keys: ["S"], keywords: "etat avancement", run: () => pickFor("status") },
       { id: "start", group: "Sur l'item", label: "Démarrer…", keys: ["S", "2"], keywords: "en cours commencer date debut", run: () => pickFor("start") },
+      { id: "paused", group: "Sur l'item", label: "Mettre en pause…", keys: ["S", "P"], keywords: "pause suspendre arreter attente", run: () => pickFor("paused") },
+      { id: "resume", group: "Sur l'item", label: "Reprendre…", keywords: "pause reprise relancer", run: () => pickFor("resume") },
       { id: "dev_done", group: "Sur l'item", label: "Dev terminé…", keys: ["S", "3"], keywords: "dev fini attente production mep dependance", run: () => pickFor("dev_done") },
       { id: "done", group: "Sur l'item", label: "Terminer…", keys: ["S", "4"], keywords: "fait fini date fin livrer production", run: () => pickFor("done") },
       { id: "a", group: "Sur l'item", label: "Assigner à…", keys: ["A"], keywords: "owner responsable personne", run: () => pickFor("owners") },
@@ -427,6 +429,7 @@ function ProjectPage() {
                   <MenuSeparator />
                   <MenuItem kbd="S" onClick={() => pickFor("status", ctxTargets())}>Statut…</MenuItem>
                   <MenuItem onClick={() => pickFor("start", ctxTargets())}>Démarrer le…</MenuItem>
+                  <MenuItem onClick={() => pickFor("paused", ctxTargets())}>Mettre en pause le…</MenuItem>
                   <MenuItem onClick={() => pickFor("dev_done", ctxTargets())}>Dev terminé le…</MenuItem>
                   <MenuItem onClick={() => pickFor("done", ctxTargets())}>Terminer le…</MenuItem>
                   <MenuItem kbd="A" onClick={() => pickFor("owners", ctxTargets())}>Owners…</MenuItem>

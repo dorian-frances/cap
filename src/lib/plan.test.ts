@@ -1,7 +1,7 @@
 // node --test src/lib/plan.test.ts
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { schedule as run, startBefore, isLate, lateBy, overdue, slip, totalJh, activeTags, unplannedReason, weekLoad, absentSet, toDay, daysUntil, dueOn, upcomingStarts, toLift, upcomingMilestones, targetsOf, type Item } from "./plan.ts";
+import { schedule as run, pauses, startBefore, isLate, lateBy, overdue, slip, totalJh, activeTags, unplannedReason, weekLoad, absentSet, toDay, daysUntil, dueOn, upcomingStarts, toLift, upcomingMilestones, targetsOf, type Item } from "./plan.ts";
 
 const MON = "2026-09-28"; // lundi
 const A = { id: "a", name: "A", capacity: 1 };
@@ -173,6 +173,23 @@ test("dev terminé : dates réelles, owners libérés, plus en retard", () => {
   assert.deepEqual(plan.spans.get(x.id), { start: MON, end: "2026-10-01", planned: "2026-09-29" });
   assert.equal(overdue(x, plan.spans.get(x.id)), false);
   assert.deepEqual(plan.spans.get(y.id), { start: "2026-10-06", end: "2026-10-06" });
+});
+
+test("en pause : barre jusqu'à aujourd'hui, owners libérés, pas en retard ; reprise : la pause fait glisser", () => {
+  const x = item({ estimate_jh: 5, owner_ids: ["a"], status: "paused", started_on: MON, pauses: [{ from: "2026-09-30" }] });
+  const y = item({ estimate_jh: 1, owner_ids: ["a"] });
+  const plan = schedule([x, y], [A], [], MON, "2026-10-06");
+  const s = plan.spans.get(x.id);
+  assert.deepEqual(s, { start: MON, end: "2026-10-06", planned: "2026-10-02" });
+  assert.equal(overdue(x, s), false);
+  assert.deepEqual(pauses(x, s), [{ start: "2026-09-30", end: "2026-10-06" }]);
+  assert.deepEqual(plan.spans.get(y.id), { start: "2026-10-06", end: "2026-10-06" });
+  // Reprise le lun 5 : lun, mar travaillés, pause mer-ven, reprise lun 5 pour 3 j : fin mer 7
+  const z = item({ estimate_jh: 5, owner_ids: ["a"], status: "doing", started_on: MON, pauses: [{ from: "2026-09-30", until: "2026-10-05" }] });
+  const sz = schedule([z], [A], [], MON, MON).spans.get(z.id);
+  assert.deepEqual(sz, { start: MON, end: "2026-10-07", planned: "2026-10-02" });
+  assert.equal(slip(sz), 3);
+  assert.deepEqual(pauses(z, sz), [{ start: "2026-09-30", end: "2026-10-04" }]);
 });
 
 test("avenant : la tâche occupe estimation + avenant, la suivante démarre après, glissement visible", () => {

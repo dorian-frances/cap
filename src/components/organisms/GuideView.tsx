@@ -65,6 +65,7 @@ export default function GuideView({ onView, onShare, onPalette }: { onView: (v: 
         <ul className="flex list-disc flex-col gap-1 pl-5 text-[13px] text-stone-600 marker:text-stone-300">
           <li>Pas terminée = en cours : elle occupe ses owners jusqu&apos;à aujourd&apos;hui.</li>
           <li>Plusieurs tâches en cours en parallèle : chacune avance à pleine disponibilité.</li>
+          <li>En pause : n&apos;avance plus, owners libérés ; à la reprise, la fin glisse d&apos;autant.</li>
           <li>Dev terminé : owners libérés, l&apos;item attend sa mise en production.</li>
           <li>« Pourquoi ces dates » : dans le panneau de l&apos;item.</li>
         </ul>
@@ -78,6 +79,7 @@ export default function GuideView({ onView, onShare, onPalette }: { onView: (v: 
           <Legend swatch={<Bar status="done" />}>Fait</Legend>
           <Legend swatch={<Swatch style={{ background: HATCH.overrun }} />}>Au-delà de la fin prévue : retard ou avenant</Legend>
           <Legend swatch={<Swatch style={{ background: HATCH.late }} />}>Après son jalon cible</Legend>
+          <Legend swatch={<Swatch style={{ background: HATCH.pause }} />}>En pause</Legend>
           <Legend swatch={<span className="rounded-[4px] bg-amber-100 px-1 text-[11px] font-medium leading-4 text-amber-800">+2 j</span>}>Glissement sur la fin prévue</Legend>
           <Legend swatch={<Swatch line style={{ borderLeft: "1px dashed var(--color-stone-500)" }} />}>Jalon</Legend>
           <Legend swatch={<Swatch line style={{ borderLeft: "1px solid var(--color-accent-500)" }} />}>Aujourd&apos;hui</Legend>
@@ -88,7 +90,7 @@ export default function GuideView({ onView, onShare, onPalette }: { onView: (v: 
         <div className="grid gap-x-6 gap-y-2 text-[13px] text-stone-600 sm:grid-cols-2">
           <Shortcut keys={["⌘", "K"]}>Palette de commandes</Shortcut>
           <Shortcut keys={["C"]}>Nouvel item</Shortcut>
-          <Shortcut keys={["S"]}>Statut (puis <Kbd>2</Kbd> démarrer, <Kbd>3</Kbd> dev terminé, <Kbd>4</Kbd> fait)</Shortcut>
+          <Shortcut keys={["S"]}>Statut (puis <Kbd>2</Kbd> démarrer, <Kbd>P</Kbd> pause, <Kbd>3</Kbd> dev terminé, <Kbd>4</Kbd> fait)</Shortcut>
           <Shortcut keys={["A"]}>Assigner</Shortcut>
           <Shortcut keys={["E"]}>Estimation</Shortcut>
           <Shortcut keys={["M"]}>Jalons cibles</Shortcut>

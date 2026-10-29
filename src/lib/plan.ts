@@ -7,7 +7,9 @@ export type Project = {
 export type Person = { id: string; name: string; capacity: number; color?: number | null };
 export type Absence = { id: string; person_id: string; start_date: string; end_date: string; label?: string };
 /** dev_done : développement fini (dates réelles), pas encore en production (dépendance, recette…). */
-export type Status = "todo" | "doing" | "dev_done" | "done";
+export type Status = "todo" | "doing" | "paused" | "dev_done" | "done";
+/** Pause d'une tâche démarrée : à partir de `from`, jusqu'à la reprise `until` (exclue) ; ouverte tant qu'elle n'a pas repris. */
+export type Pause = { from: string; until?: string | null };
 export type Tag = "risk" | "dependency" | "blocked";
 /** Pose d'un tag, avec sa raison ; actif tant qu'il n'est pas levé. `by` : email de l'auteur. */
 export type TagEntry = { id: string; tag: Tag; reason: string; on: string; by?: string; lifted_on?: string | null; lifted_by?: string };
@@ -28,6 +30,7 @@ export type Item = {
   description?: string;
   started_on?: string | null; // démarrage réel (ou prévu) ; posé en passant « En cours »
   done_on?: string | null; // fin réelle du dev ; posée en passant « Dev terminé » ou « Terminé »
+  pauses?: Pause[]; // historique des pauses ; la dernière est ouverte quand le statut est « En pause »
   extra_jh?: number; // avenant : JH ajoutés à l'estimation sans changer la fin prévue
   extra_note?: string; // motif de l'avenant
   tag_log?: TagEntry[]; // historique des tags, indicateurs sur la timeline sans effet sur le calcul
@@ -38,6 +41,16 @@ export type Item = {
 export const workJh = (i: Item) => Number(i.estimate_jh) + Number(i.extra_jh ?? 0);
 /** Plus rien à faire en dev : terminé, en production ou non. */
 export const finished = (i: Item) => i.status === "done" || i.status === "dev_done";
+const pausedOn = (i: Item, d: number) => (i.pauses ?? []).some((p) => toDay(p.from) <= d && (!p.until || d < toDay(p.until)));
+/** Périodes de pause sur la barre (une pause ouverte court jusqu'à la fin de la barre). */
+export function pauses(item: Item, span: Span | null | undefined): Span[] {
+  if (!span) return [];
+  return (item.pauses ?? []).flatMap((p) => {
+    const a = p.from > span.start ? p.from : span.start;
+    const b = p.until && toIso(toDay(p.until) - 1) < span.end ? toIso(toDay(p.until) - 1) : span.end;
+    return a <= b ? [{ start: a, end: b }] : [];
+  });
+}
 /** Dates ISO, bornes incluses. `planned` : fin prévue par l'estimation, quand elle diffère de la fin affichée. */
 export type Span = { start: string; end: string; planned?: string };
 export type Row = { item: Item; depth: number; hasChildren: boolean };
@@ -114,12 +127,13 @@ export function orderItems(items: Item[]): Row[] {
  * à chaque tâche démarrée, même en parallèle d'une autre.
  * 1. Dev fini avec ses deux dates : faits intangibles, placés sur leurs dates réelles.
  * 2. En cours (date de début connue) : chacune à la disponibilité de ses owners, sans tenir compte
- *    des autres. Pas terminée à sa fin prévue : elle se prolonge jusqu'à aujourd'hui. L'avenant
- *    s'ajoute après l'estimation, ou après aujourd'hui si elle est déjà en retard.
+ *    des autres ni avancer pendant ses pauses. Pas terminée à sa fin prévue : elle se prolonge jusqu'à
+ *    aujourd'hui. L'avenant s'ajoute après l'estimation, ou après aujourd'hui si elle est déjà en retard.
+ *    En pause : la barre va jusqu'à aujourd'hui, ses owners sont libres dès le début de la pause.
  * 3. Anciennes tâches démarrées sans date de début, puis à faire : par priorité, jamais avant
  *    aujourd'hui, dans le temps laissé libre ; un Item démarre quand tous ses owners sont libres.
- * Fin prévue (engagement) d'une tâche démarrée : son estimation sur la disponibilité de ses owners.
- * Au-delà : retard. Parent : enveloppe de ses enfants. Jalon : sa date. null : non planifiable.
+ * Fin prévue (engagement) d'une tâche démarrée : son estimation sur la disponibilité de ses owners,
+ * sans les pauses. Au-delà : retard (une pause fait glisser). Parent : enveloppe de ses enfants. Jalon : sa date. null : non planifiable.
  */
 export function schedule(items: Item[], people: Person[], absences: Absence[], startIso: string, today = todayIso()): Plan {
   const start = toDay(startIso);
@@ -134,12 +148,18 @@ export function schedule(items: Item[], people: Person[], absences: Absence[], s
   const cap = (p: string, d: number) => (isWeekend(d) || absent.has(`${p}:${d}`) ? 0 : capacity.get(p)!);
   const left = (p: string, d: number) => Math.max(0, cap(p, d) - (used.get(`${p}:${d}`) ?? 0));
   const take = (p: string, d: number, q: number) => { if (q > 1e-12) used.set(`${p}:${d}`, (used.get(`${p}:${d}`) ?? 0) + q); };
-  // Owners occupés du jour a au jour b (ce qui leur reste de temps ces jours-là).
-  const occupy = (owners: string[], a: number, b: number) => { for (let d = a; d <= b; d++) for (const o of owners) take(o, d, left(o, d)); };
-  // Dernier jour d'un travail de `jh` démarré le `from`, à pleine disponibilité des owners (null : pas de capacité).
-  const finish = (owners: string[], from: number, jh: number) => {
+  // Owners occupés du jour a au jour b (ce qui leur reste de temps ces jours-là), hors pauses de l'item.
+  const occupy = (owners: string[], a: number, b: number, item: Item) => {
+    for (let d = a; d <= b; d++) if (!pausedOn(item, d)) for (const o of owners) take(o, d, left(o, d));
+  };
+  // Dernier jour d'un travail de `jh` démarré le `from`, à pleine disponibilité des owners, sans avancer pendant
+  // les pauses de `item` s'il est donné (null : pas de capacité).
+  const finish = (owners: string[], from: number, jh: number, item?: Item) => {
     let rest = jh;
-    for (let d = from; d < from + HORIZON; d++) if ((rest -= owners.reduce((sum, o) => sum + cap(o, d), 0)) <= 1e-9) return d;
+    for (let d = from; d < from + HORIZON; d++) {
+      if (item && pausedOn(item, d)) continue;
+      if ((rest -= owners.reduce((sum, o) => sum + cap(o, d), 0)) <= 1e-9) return d;
+    }
     return null;
   };
   const span = (a: number, b: number, planned: number): Span => ({ start: toIso(a), end: toIso(b), ...(planned !== b ? { planned: toIso(planned) } : {}) });
@@ -156,7 +176,7 @@ export function schedule(items: Item[], people: Person[], absences: Absence[], s
     const owners = ownersOf(item);
     const a = toDay(item.started_on!);
     const b = Math.max(a, toDay(item.done_on!));
-    occupy(owners, a, b);
+    occupy(owners, a, b, item);
     spans.set(item.id, span(a, b, owners.length ? finish(owners, a, Number(item.estimate_jh)) ?? b : b));
   }
 
@@ -165,14 +185,18 @@ export function schedule(items: Item[], people: Person[], absences: Absence[], s
     const owners = ownersOf(item);
     const est = Number(item.estimate_jh), extra = Number(item.extra_jh ?? 0);
     const a = toDay(item.started_on!);
-    const planned = owners.length && est + extra > 0 ? finish(owners, a, est) : null;
-    const end = planned === null ? null
-      : finished(item) ? Math.min(planned, Math.max(now, a)) // sans date de fin : pas après aujourd'hui
-      : !extra ? Math.max(planned, now)
-      : planned >= now ? finish(owners, a, est + extra) : finish(owners, now + 1, extra);
+    const paused = item.status === "paused";
+    const planned = owners.length && est + extra > 0 ? finish(owners, a, est) : null; // engagement, sans les pauses
+    const real = planned === null || paused ? planned : finish(owners, a, est, item); // avec les pauses
+    const end = planned === null || real === null ? null
+      : paused ? Math.max(now, a, toDay(item.pauses?.find((p) => !p.until)?.from ?? today))
+      : finished(item) ? Math.min(real, Math.max(now, a)) // sans date de fin : pas après aujourd'hui
+      : !extra ? Math.max(real, now)
+      : real >= now ? finish(owners, a, est + extra, item) : finish(owners, now + 1, extra, item);
     if (planned === null || end === null) { spans.set(item.id, null); continue; }
-    occupy(owners, a, end);
-    for (const o of owners) if (end + 1 >= (free.get(o) ?? -Infinity)) { free.set(o, end + 1); last.set(o, item.id); }
+    occupy(owners, a, end, item);
+    // En pause : la tâche ne retient pas ses owners, la suite démarre dès qu'ils sont libres.
+    if (!paused) for (const o of owners) if (end + 1 >= (free.get(o) ?? -Infinity)) { free.set(o, end + 1); last.set(o, item.id); }
     spans.set(item.id, span(a, end, planned));
   }
 
@@ -212,7 +236,7 @@ export function schedule(items: Item[], people: Person[], absences: Absence[], s
     // Dev fini : à sa date de fin réelle (sans date, pas après aujourd'hui). Sinon : au moins jusqu'à aujourd'hui.
     const end = done ? (item.done_on ? toDay(item.done_on) : Math.min(planned, Math.max(now, s))) : Math.max(planned, now);
     for (const [day, o, q] of alloc) if (day <= end) take(o, day, q);
-    if (end > planned) occupy(owners, planned + 1, end);
+    if (end > planned) occupy(owners, planned + 1, end, item);
 
     if (blocker) after.set(item.id, last.get(blocker)!);
     for (const o of owners) {
@@ -301,8 +325,8 @@ export function slip(span: Span | null | undefined) {
   return workingDays(toIso(toDay(span.planned) + 1), span.end);
 }
 
-/** Pas terminée et finit (ou finira) après sa fin prévue : en retard, ou glissement annoncé. */
-export const overdue = (item: Item, span: Span | null | undefined) => !finished(item) && slip(span) > 0;
+/** Pas terminée et finit (ou finira) après sa fin prévue : en retard, ou glissement annoncé. En pause : pas en retard. */
+export const overdue = (item: Item, span: Span | null | undefined) => !finished(item) && item.status !== "paused" && slip(span) > 0;
 
 /** Occupation d'une personne sur une semaine : part de sa capacité réellement utilisée, ou "abs". */
 export function weekLoad(plan: Plan, person: Person, absent: Set<string>, mondayDay: number): number | "abs" {

@@ -1,6 +1,7 @@
 import type { Axis } from "@/lib/axis";
 import type { Span } from "@/lib/plan";
 import { cx } from "@/lib/cx";
+import { Pause } from "lucide-react";
 import { ACCENT, HATCH } from "../tokens";
 
 // Les barres glissent vers leurs nouvelles dates quand le plan est recalculé.
@@ -10,11 +11,12 @@ const motion = "transition-[left,width,opacity,box-shadow] duration-300 ease-out
  * Barre calculée d'un item.
  * - Au-delà de la fin prévue (`span.planned`) : hachures ambre, retard sur l'estimation.
  * - Au-delà de `lateFrom` (date du jalon dépassé) : hachures rouges.
+ * - `pauses` : périodes où la tâche est en pause, rayures grises.
  * Libellé dedans si la barre est assez large, sinon à droite (`auto`) ou masqué (`inside`) ;
  * dedans, il passe au-dessus des hachures sur un fond de la couleur de la barre pour rester lisible.
  */
-export function GanttBar({ ax, span, label, tone, lateFrom, top, height, labelMode = "auto", selected, faded, title }: {
-  ax: Axis; span: Span; label: string; tone: { bar: string; border: string; text: string }; lateFrom?: string | null;
+export function GanttBar({ ax, span, label, tone, lateFrom, pauses = [], top, height, labelMode = "auto", selected, faded, title }: {
+  ax: Axis; span: Span; label: string; tone: { bar: string; border: string; text: string }; lateFrom?: string | null; pauses?: Span[];
   top: number; height: number; labelMode?: "auto" | "inside"; selected?: boolean; faded?: boolean; title?: string;
 }) {
   const left = ax.x(span.start);
@@ -35,6 +37,19 @@ export function GanttBar({ ax, span, label, tone, lateFrom, top, height, labelMo
         <div className={cx("pointer-events-none absolute rounded-r-[5px]", motion)}
           style={{ left: ov, width: left + width - ov, top, height, background: HATCH.late, boxShadow: `inset 0 0 0 1px ${HATCH.lateBorder}` }} />
       )}
+      {pauses.map((p) => {
+        const l = ax.x(p.start), w = ax.x(p.end) - l + ax.px;
+        return (
+          <div key={p.start} className={cx("pointer-events-none absolute flex items-center justify-center rounded-[5px] text-stone-500", motion)}
+            style={{ left: l, width: w, top, height, background: HATCH.pause, boxShadow: `inset 0 0 0 1px ${HATCH.pauseBorder}` }}>
+            {w >= 18 && (
+              <span className="flex items-center gap-0.5 rounded-full bg-surface px-1 text-[10px] font-medium leading-[14px] text-stone-600 shadow-[0_0_0_1px_rgb(28_25_23/0.08)]">
+                <Pause size={8} fill="currentColor" strokeWidth={0} />{w >= 64 && "Pause"}
+              </span>
+            )}
+          </div>
+        );
+      })}
       {fits && (
         <div className={cx("pointer-events-none absolute truncate px-1.5 text-xs font-medium", motion)}
           style={{ left, width, top, height, lineHeight: `${height}px`, color: tone.text, opacity: faded ? 0.85 : 1 }}>

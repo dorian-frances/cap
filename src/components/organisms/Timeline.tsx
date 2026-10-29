@@ -3,7 +3,7 @@
 import { useEffect, useState, type CSSProperties, type ReactNode, type RefObject } from "react";
 import { GripVertical, Plus, TriangleAlert } from "lucide-react";
 import {
-  activeTags, openTags, workJh, lateBy, isLate, targetsOf, overdue, slip, todayIso, totalJh, unplannedReason, fmtDay,
+  activeTags, openTags, pauses, workJh, lateBy, isLate, targetsOf, overdue, slip, todayIso, totalJh, unplannedReason, fmtDay,
   type Item, type Person, type Plan, type Row, type Tag,
 } from "@/lib/plan";
 import type { Axis } from "@/lib/axis";
@@ -12,9 +12,9 @@ import { AvatarStack, AxisHeader, AxisLines, GanttBar, weekendBg } from "../mole
 import { Avatar, Chevron, StatusIcon } from "../atoms";
 import { STATUS, TAGS, personColor } from "../tokens";
 
-// start / dev_done / done : date de démarrage ou de fin du dev, demandée après le choix du statut.
+// start / paused / resume / dev_done / done : date de démarrage, de pause, de reprise ou de fin du dev, demandée après le choix du statut.
 // extra : avenant (retard anticipé en JH).
-export type PickKind = "status" | "owners" | "estimate" | "extra" | "milestone" | "start" | "dev_done" | "done" | "tags";
+export type PickKind = "status" | "owners" | "estimate" | "extra" | "milestone" | "start" | "paused" | "resume" | "dev_done" | "done" | "tags";
 export const LEFT = 380; // largeur par défaut de la colonne des titres, redimensionnable
 
 type Props = {
@@ -79,7 +79,7 @@ export default function Timeline({ scrollRef, ...p }: Props) {
     const late = lateBy(item, span, items) > 0;
     return (
       <GanttBar ax={ax} span={span} label={item.title || "Sans titre"} tone={tone} top={6} height={20} selected={selected}
-        faded={item.status === "done"} title={title} lateFrom={late ? targetsOf(item, items)[0].milestone_date : null} />
+        faded={item.status === "done"} title={title} pauses={pauses(item, span)} lateFrom={late ? targetsOf(item, items)[0].milestone_date : null} />
     );
   };
 

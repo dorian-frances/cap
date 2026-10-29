@@ -5,6 +5,8 @@ import type { PrepKind, Status, Tag } from "@/lib/plan";
 export const STATUS: Record<Status, { label: string; bar: string; border: string; text: string; key: string }> = {
   todo: { label: "À faire", bar: "var(--st-todo-bar)", border: "var(--st-todo-border)", text: "var(--st-todo-text)", key: "1" },
   doing: { label: "En cours", bar: "var(--st-doing-bar)", border: "var(--st-doing-border)", text: "var(--st-doing-text)", key: "2" },
+  // En pause : couleurs d'« En cours », la pause se lit en rayures sur la barre. Touche P (mnémonique).
+  paused: { label: "En pause", bar: "var(--st-doing-bar)", border: "var(--st-doing-border)", text: "var(--st-doing-text)", key: "p" },
   dev_done: { label: "Dev terminé", bar: "var(--st-devdone-bar)", border: "var(--st-devdone-border)", text: "var(--st-devdone-text)", key: "3" },
   done: { label: "Fait", bar: "var(--st-done-bar)", border: "var(--st-done-border)", text: "var(--st-done-text)", key: "4" },
 };
@@ -32,6 +34,9 @@ export const HATCH = {
   // Retard sur l'estimation (ambre) : distinct du dépassement de jalon (rouge).
   overrun: "var(--hatch-overrun)",
   overrunBorder: "var(--hatch-overrun-border)",
+  // En pause : rayures verticales grises, comme un « || ».
+  pause: "var(--hatch-pause)",
+  pauseBorder: "var(--hatch-pause-border)",
   absence: "var(--hatch-absence)",
   absenceOverlay: "var(--hatch-absence-overlay)",
 };

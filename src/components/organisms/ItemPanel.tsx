@@ -1,8 +1,8 @@
 "use client";
 
-import { ArrowRight, CalendarCheck, CalendarDays, Check, ChevronRight, CircleSlash, Clock, Divide, Link2, Play, Plus, Trash2, TriangleAlert, X } from "lucide-react";
+import { ArrowRight, CalendarCheck, CalendarDays, Check, ChevronRight, CircleSlash, Clock, Divide, Link2, Pause, Play, Plus, Trash2, TriangleAlert, X } from "lucide-react";
 import {
-  absentSet, dueOn, finished, prepLeads, isWeekend, lateAfter, lateBy, targetsOf, overdue, slip, toDay, todayIso, totalJh, unplannedReason, workJh, workingDays, fmtDay,
+  absentSet, dueOn, finished, toIso, prepLeads, isWeekend, lateAfter, lateBy, targetsOf, overdue, slip, toDay, todayIso, totalJh, unplannedReason, workJh, workingDays, fmtDay,
   type Item, type Plan, type TagEntry,
 } from "@/lib/plan";
 import type { Data, Store } from "@/lib/store";
@@ -56,6 +56,10 @@ export default function ItemPanel({ item, data, plan, store, me, closing, onClos
       const prev = items.find((i) => i.id === plan.after.get(item.id));
       if (item.status !== "todo" && item.started_on) {
         why.push({ icon: <Play size={14} />, text: `${item.started_on > todayIso() ? "Démarre" : "Démarrée"} le ${fmtDay(item.started_on)}` });
+        for (const p of item.pauses ?? [])
+          why.push({ icon: <Pause size={14} />, text: p.until
+            ? `En pause du ${fmtDay(p.from)} au ${fmtDay(toIso(toDay(p.until) - 1))}, reprise le ${fmtDay(p.until)}`
+            : `En pause depuis le ${fmtDay(p.from)} : n'avance plus, ses owners sont libres` });
       } else if (prev) {
         const shared = people.find((p) => prev.owner_ids.includes(p.id) && item.owner_ids.includes(p.id));
         const prevSpan = plan.spans.get(prev.id);
@@ -130,6 +134,12 @@ export default function ItemPanel({ item, data, plan, store, me, closing, onClos
                 {item.started_on ? `Depuis le ${fmtDay(item.started_on)}` : <span className="text-stone-500">Date de début</span>}
               </Chip>
             )}
+            {!isParent && item.status === "paused" && (
+              <Chip className="tabular-nums" onClick={(e) => onPick("paused", e.currentTarget)}>
+                <Pause size={12} className="text-stone-400" />
+                En pause depuis le {fmtDay(item.pauses?.find((p) => !p.until)?.from ?? today)}
+              </Chip>
+            )}
             {!isParent && finished(item) && (
               <Chip className="tabular-nums" onClick={(e) => onPick(item.status === "dev_done" ? "dev_done" : "done", e.currentTarget)}>
                 <CalendarCheck size={12} className="text-stone-400" />
@@ -201,6 +211,15 @@ export default function ItemPanel({ item, data, plan, store, me, closing, onClos
               );
             })}
           </section>
+        )}
+
+        {!isParent && item.status === "paused" && (
+          <div className="flex animate-rise-in flex-col gap-2 rounded-lg border border-stone-200 bg-stone-50 px-3.5 py-3 text-[13px]">
+            <div className="flex items-center gap-2 font-semibold text-stone-800"><Pause size={14} className="text-stone-500" />
+              En pause depuis le {fmtDay(item.pauses?.find((p) => !p.until)?.from ?? today)}</div>
+            <p className="text-[12.5px] text-stone-600">N&apos;avance plus et ne retient pas ses owners. À la reprise, le temps de pause s&apos;ajoute : la fin glisse d&apos;autant.</p>
+            <div className="flex gap-1.5"><Button size="sm" onClick={(e) => onPick("resume", e.currentTarget)}>Reprendre…</Button></div>
+          </div>
         )}
 
         {behind && (

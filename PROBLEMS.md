@@ -30,9 +30,10 @@ Principe clé : **la barre n'est pas dessinée, elle est calculée** à partir d
 - **Disponibilité** : 100 % par défaut, moins les week-ends, les temps partiels et les absences saisies. Pas de part réservée aux défauts.
 - **Pas de charge par tâche** : un owner donne toute sa disponibilité à chaque tâche démarrée. Deux tâches en cours en parallèle avancent chacune comme si elle était seule (pas de ralentissement, pas de surcharge).
 - **Jours fériés** : non gérés automatiquement (des freelances travaillent certains fériés). On saisit une absence, éventuellement pour toute l'équipe d'un coup.
-- **Dates réelles, pas de barre dessinée** : une tâche passe par quatre états.
+- **Dates réelles, pas de barre dessinée** : une tâche passe par ces états.
   - *À faire* : pas de date ; enchaînée par priorité, jamais avant aujourd'hui, dès que ses owners sont libres.
   - *En cours* : date de début réelle (aujourd'hui par défaut, modifiable, antérieure possible pour paralléliser). Fin prévue = début + JH sur la disponibilité des owners.
+  - *En pause* : date de mise en pause ; la tâche n'avance plus et ne retient pas ses owners (leurs tâches suivantes démarrent), la barre va jusqu'à aujourd'hui avec la pause en rayures grises. Pas comptée en retard. *Reprendre* enregistre la date de reprise : la tâche repart avec ce qu'il lui reste, la pause la fait glisser sur sa fin prévue.
   - *Dev terminé* : date de fin du dev, saisissable a posteriori ; plus rien à faire en dev (owners libérés) mais pas en production (dépendance, recette…). Barre violette.
   - *Fait* : en production. Depuis « Dev terminé », la date de fin du dev est gardée ; sinon, date de fin saisie.
 - **Tant qu'une tâche n'est pas terminée, elle est en cours** : si sa fin prévue est passée, elle se prolonge jusqu'à aujourd'hui (retard sur l'estimation, en ambre) et les tâches suivantes de ses owners glissent.
